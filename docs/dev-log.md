@@ -250,3 +250,27 @@ What happened: `node --test` → 90 passed, 0 failed, 4 skipped. Headless-Chrome
 How it was found: `node --test`, probes, screenshots (A RR results, A compare, T4 stepper, B SRTF).
 Fix / resolution: Safari still not tested.
 Commit: UI Tier 2 commit
+
+### [19:10] Phase 5, DECISION
+What happened: Report built. `scripts/report-data.mjs` runs the engine and writes LaTeX fragments to `report/generated/`: per-case TikZ Gantt (hand row from hand.json + simulator row), hand-vs-simulator tables (H/S columns; a differing simulator value is printed in red), input tables, compare-all tables + stacked Gantts (Q1), RR q=1/2/4 sweep with slices and process switches (Q2), the T1–T7 table, and live `node --test` counts. `report/main.tex` holds the text; the appendix includes Melik's 5 handwritten PDFs. Compiled locally with MiKTeX latexmk (15 pages).
+How it was found: PLAN.md §12.
+Fix / resolution: The T1–T7 "expected" column is copied from the PLAN.md §9 spec table, not from the engine; the script compares it with the engine and prints ✓ only on equality. Hand values come only from hand.json. Q2 also uses one extra engine-computed example (two equal jobs P1(0,2), P2(0,2): q=1 gives average turnaround 7/2 vs 6/2 for q=2) because Workload A/B alone don't show turnaround getting *worse* with a smaller quantum. Analysis text and the AI-use statement are drafts for Melik to review; the AI-use statement and Q6 cite only entries in this log.
+Commit: Phase 5 commit
+
+### [19:10] Phase 5, BUG
+What happened: (1) My draft answer to Q5 used "P1(0,10) + a burst-1 job every unit" as a starvation example for *both* SJF and SRTF. That is wrong for SJF: P1 is alone at t=0, so non-preemptive SJF runs it to completion. (2) The Q1 stacked Gantt showed RR slice numbers (#1, #2) on the FCFS/SJF/SRTF rows.
+How it was found: (1) Re-reading the draft against the rules. (2) Reading the compiled PDF.
+Fix / resolution: (1) Separate examples: SRTF as before; SJF with a burst-2 job also at t=0 plus a burst-2 job arriving every unit, so a shorter job is always ready when the CPU frees up. (2) Slice labels per row, only for RR.
+Commit: Phase 5 commit
+
+### [19:10] Phase 5, DECISION
+What happened: Several of my shell one-liners that patched main.tex / report-data.mjs broke because of nested escaping (bash + JS string + LaTeX backslashes): once a backslash sequence became a control character (`\b` → backspace, `\r` → carriage return) inside main.tex.
+How it was found: Missing backslashes in grep output; a control-character check.
+Fix / resolution: Repaired the affected lines and checked the file for control characters. Later edits were made with the editor tool instead of shell-quoted scripts. The compiled PDF was read page by page afterwards.
+Commit: Phase 5 commit
+
+### [19:10] Phase 5, CHECKPOINT
+What happened: `node scripts/report-data.mjs`: all 8 worked examples hand = simulator (segments, 20 values, 3 averages each); T1–T7 actual = spec. `node --test` → 90 passed, 0 failed, 4 skipped. PDF compiles (15 pages), URL is clickable directly under the title.
+How it was found: Script output, latexmk, reading every page of the PDF.
+Fix / resolution: Waiting for Melik to review the analysis answers and the AI-use statement and to confirm the name spelling on the title page.
+Commit: Phase 5 commit

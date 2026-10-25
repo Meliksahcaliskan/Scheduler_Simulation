@@ -74,6 +74,10 @@ docs/dev-log.md        development log: decisions, bugs found, how tests exposed
 - `oracle.test.js`: compares the engine with independent hand calculations in `tests/oracle/hand.json` (cases are skipped, never passed, until filled in).
 - `build.test.js`, `format.test.js`: the single-file build and the number formatting.
 
+## Report
+
+The PDF report is `report/main.pdf`. To rebuild it: `node scripts/report-data.mjs` (runs the engine and the tests, and writes the tables and TikZ Gantt charts to `report/generated/`), then `latexmk -pdf main.tex` inside `report/`. It uses only standard LaTeX packages. Hand-calculated values come from `tests/oracle/hand.json` (transcribed from the handwritten pages in `tests/oracle/*.pdf`).
+
 ## Limitations
 
 - **Model, not a real OS:** this simulator models textbook scheduling policies. It does not reproduce Ubuntu's (or any real OS's) scheduler. There is no I/O, there are no priorities, no multiple CPUs and no context-switch cost. Burst lengths are known exactly, whereas a real OS must estimate them.
