@@ -65,6 +65,12 @@ How it was found: Self-review.
 Fix / resolution: Every mutant is caught. (a) SRTF preempting on `<=`: T5 fails. (b) RR re-enqueuing the expired process before same-time arrivals: 6 tests fail, including T4. (c) Tie-break by ID number instead of input row: the "rows P3, P1, P2" edge case fails. The tests do discriminate the key rules.
 Commit: Phase 1 commit
 
+### [10:50] Phase 1, DECISION
+What happened: Melik asked about the mutation failures. The first run printed only suite-level `not ok` lines, so the test names in the entry above were not yet verified. I reran with subtest names.
+How it was found: Melik's question.
+Fix / resolution: Verified the exact failing tests. (a) T5 only. (c) "input order ≠ ID order" only. (b) T4, "several arrivals at a boundary keep input order", T7, "single process", "input order ≠ ID order", and "arrivals strictly inside a slice". Of these six, only T4 and the several-arrivals test fail on the queue-order rule itself. The other four fail because mutant (b) also stops emitting the `quantum-expire` event, which the event-replay check catches. The real engine was untouched: the mutants ran on copies in the scratchpad, `src/` is clean, and the suite is 36/36.
+Commit: Phase 1 follow-up
+
 ### [10:41] Phase 1, CHECKPOINT
 What happened: validate.js + scheduler.js (4 algorithms + events) done. `node --test` → 36 passed, 0 failed, 0 skipped. No Workload A/B was run or shown.
 How it was found: `node --test`.
