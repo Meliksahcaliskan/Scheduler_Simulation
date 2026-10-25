@@ -71,6 +71,8 @@ export function simulate(processes, algorithm, quantum) {
   let sliceUsed = 0;
   let segStart = 0;
   let idleStart = null;
+  // A correct run always ends by (last arrival + total burst). Past that, fail instead of hanging the page.
+  const horizon = arrivalOrder[arrivalOrder.length - 1].arrival + procs.reduce((s, p) => s + p.burst, 0);
 
   const readyView = () => (isRR ? ready : [...ready].sort((a, b) => compareByKeys(keys, a, b)));
   const emit = (type, pid, detail) => {
@@ -95,6 +97,7 @@ export function simulate(processes, algorithm, quantum) {
       emit('complete', p.id, `t=${t}: ${p.id} completes (received its full burst of ${p.burst})`);
     }
     if (done === procs.length) break;
+    if (t > horizon) throw new Error(`Internal error: simulation passed t=${horizon} without finishing.`);
 
     // 2. Arrivals at exactly t, in (arrival, index) order.
     const atBoundary = isRR && running !== null && sliceUsed === quantum;

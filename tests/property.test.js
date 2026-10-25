@@ -6,7 +6,8 @@ import { simulate, ALGORITHMS } from '../src/scheduler.js';
 import { verifySchedule } from '../src/verify.js';
 import { segs, replay } from './helpers.js';
 
-const SEED = 513;
+// Override for extra runs: PROPERTY_SEED=7 node --test tests/property.test.js
+const SEED = Number(process.env.PROPERTY_SEED ?? 513);
 const COUNT = 2000;
 const QUANTA = [1, 2, 3, 4, 5];
 
@@ -32,7 +33,11 @@ function randomWorkloads() {
     const n = 1 + Math.floor(rand() * 8);
     const spread = pick([0, 3, 10, 30]);
     const maxBurst = pick([1, 3, 10]);
-    const ids = Array.from({ length: n }, (_, i) => `P${i + 1}`).sort(() => rand() - 0.5);
+    const ids = Array.from({ length: n }, (_, i) => `P${i + 1}`);
+    for (let i = n - 1; i > 0; i--) { // Fisher–Yates shuffle
+      const j = Math.floor(rand() * (i + 1));
+      [ids[i], ids[j]] = [ids[j], ids[i]];
+    }
     out.push(ids.map((id) => ({ id, arrival: Math.floor(rand() * (spread + 1)), burst: 1 + Math.floor(rand() * maxBurst) })));
   }
   return out;

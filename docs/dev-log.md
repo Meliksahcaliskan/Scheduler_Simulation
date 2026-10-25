@@ -101,6 +101,36 @@ How it was found: `node --test`.
 Fix / resolution: Waiting for Melik's approval to start Phase 3. The oracle stays pending until hand.json is committed.
 Commit: Phase 2 commit
 
+### [11:30] Phase 2 re-check, BUG
+What happened: With the `spec` reporter, each skipped oracle case appeared as `✔ A-FCFS (FCFS)`. The skipped test was wrapped in a `describe()`, and node:test reports the suite itself as passed. This is exactly the "silently passes" look that §10.1 forbids. (The TAP summary still said "skipped 15", which is why I missed it.)
+How it was found: Melik asked for a re-check. I reran with `--test-reporter=spec` and read every line.
+Fix / resolution: Skipped cases are now top-level tests (`﹣ A-FCFS (FCFS): hand calculation vs engine # SKIP …`).
+Commit: Phase 2 re-check commit
+
+### [11:35] Phase 2 re-check, DECISION
+What happened: Review found three weaknesses. (1) The random ID shuffle used `sort(() => rand() - 0.5)`: biased, and its order depends on the engine's sort algorithm. (2) The oracle did not check that hand.json lists exactly the workload's processes (an extra or misspelled PID would go unnoticed). (3) No test covered an RR process finishing exactly at a quantum boundary while another process arrives.
+How it was found: Code review during the re-check.
+Fix / resolution: (1) Fisher–Yates shuffle, plus a `PROPERTY_SEED` env override. (2) Added the PID-set assertion. (3) New rule test: at t=2 the events are complete P1 → arrive P3 → dispatch P2, with no quantum-expire.
+Commit: Phase 2 re-check commit
+
+### [11:45] Phase 2 re-check, BUG
+What happened: A new mutant F (completion step disabled) made the mutation script hang past 10 minutes. The engine's `for (;;)` loop had no termination guard. In the browser, the same kind of bug would freeze the page with no message.
+How it was found: Mutation run timed out.
+Fix / resolution: Added a horizon guard to `simulate`. A correct run always ends by (last arrival + total burst), since the engine is work-conserving. Past that it throws `Internal error: simulation passed t=… without finishing.` Mutant F now fails fast with that error. The guard never fires on valid runs (property tests across 11 seeds stay green).
+Commit: Phase 2 re-check commit
+
+### [11:50] Phase 2 re-check, DECISION
+What happened: Two oracle-machinery checks in my scratch script gave false failures, caused by my bash string substitution, not the code. The "extra P9" case produced invalid JSON. The `"idle"` case replaced `"quantum":null` too. It did show that an invalid hand.json crashed the file with a bare SyntaxError.
+How it was found: Inspecting the unexpected results.
+Fix / resolution: Rebuilt the variants with a Node script. Extra PID → "metrics must list exactly the workload's processes". `"idle"` instead of null → passes. Broken JSON → `tests/oracle/hand.json is not valid JSON: …` (new clear message).
+Commit: Phase 2 re-check commit
+
+### [11:55] Phase 2 re-check, CHECKPOINT
+What happened: Re-check complete. `node --test` → 61 passed, 0 failed, 15 skipped (oracle, no hand.json). Property tests pass under 10 extra seeds (1, 2, 3, 7, 42, 99, 1000, 2024, 31337, 65535). Mutants against the full suite: A (SRTF ≤) 1 fail, B (RR order) 7, C (tie by ID) 2, D (idle while ready) 31, E (SJF preempts) 1, F (no completion) fails with the guard error. All caught.
+How it was found: As listed.
+Fix / resolution: Melik approved moving on to Phase 3 after the re-check.
+Commit: Phase 2 re-check commit
+
 ### [10:41] Phase 1, CHECKPOINT
 What happened: validate.js + scheduler.js (4 algorithms + events) done. `node --test` → 36 passed, 0 failed, 0 skipped. No Workload A/B was run or shown.
 How it was found: `node --test`.

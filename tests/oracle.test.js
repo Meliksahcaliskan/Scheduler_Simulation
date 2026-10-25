@@ -9,7 +9,15 @@ import { verifySchedule } from '../src/verify.js';
 import { WORKLOADS } from '../src/workloads.js';
 
 const HAND_PATH = new URL('./oracle/hand.json', import.meta.url);
-const hand = existsSync(HAND_PATH) ? JSON.parse(readFileSync(HAND_PATH, 'utf8')) : null;
+function loadHand() {
+  if (!existsSync(HAND_PATH)) return null;
+  try {
+    return JSON.parse(readFileSync(HAND_PATH, 'utf8'));
+  } catch (err) {
+    throw new Error(`tests/oracle/hand.json is not valid JSON: ${err.message}`);
+  }
+}
+const hand = loadHand();
 
 const CASES = {
   'A-FCFS': ['A', 'FCFS', null], 'A-SJF': ['A', 'SJF', null], 'A-SRTF': ['A', 'SRTF', null], 'A-RR2': ['A', 'RR', 2],
@@ -42,11 +50,12 @@ function missingReason(key) {
 for (const [key, [wl, algorithm, quantum]] of Object.entries(CASES)) {
   const label = `${key} (${algorithm}${quantum ? ` q=${quantum}` : ''})`;
   const skip = missingReason(key);
+  if (skip) {
+    // Top-level test, not inside describe(): a suite around a skipped test is reported as passed.
+    test(`${label}: hand calculation vs engine`, { skip }, () => {});
+    continue;
+  }
   describe(label, () => {
-    if (skip) {
-      test('hand calculation vs engine', { skip }, () => {});
-      return;
-    }
     const entry = hand[key];
     const processes = WORKLOADS[wl].processes;
     const handSegments = entry.segments.map(([pid, start, end]) => ({ pid: pid === 'idle' ? null : pid, start, end, sliceIndex: 0 }));
@@ -54,6 +63,7 @@ for (const [key, [wl, algorithm, quantum]] of Object.entries(CASES)) {
     test('hand calculation is self-consistent', () => {
       assert.equal(entry.algorithm, algorithm, `${key}: "algorithm" field`);
       assert.equal(entry.quantum ?? null, quantum, `${key}: "quantum" field`);
+      assert.deepEqual(Object.keys(entry.metrics).sort(), processes.map((p) => p.id).sort(), `${key}: metrics must list exactly the workload's processes`);
       const handMetrics = processes.map((p) => {
         const m = entry.metrics[p.id];
         assert.ok(m, `${key}: no metrics for ${p.id}`);

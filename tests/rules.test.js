@@ -153,6 +153,13 @@ describe('Edge cases (PLAN.md §10.2)', () => {
     assert.deepEqual(segs(r), [['P1', 0, 2], ['P2', 2, 3], ['P3', 3, 4], ['P1', 4, 5]]);
   });
 
+  test('RR: finishing exactly at a quantum boundary is a completion, not an expiry', () => {
+    const r = run(P(['P1', 0, 2], ['P2', 0, 1], ['P3', 2, 1]), 'RR', 2);
+    assert.deepEqual(segs(r), [['P1', 0, 2], ['P2', 2, 3], ['P3', 3, 4]]);
+    assert.ok(!r.events.some((e) => e.type === 'quantum-expire'));
+    assert.deepEqual(r.events.filter((e) => e.t === 2).map((e) => [e.type, e.pid]), [['complete', 'P1'], ['arrive', 'P3'], ['dispatch', 'P2']]);
+  });
+
   test('RR: idle interval in the middle', () => {
     assert.deepEqual(segs(run(P(['P1', 0, 1], ['P2', 3, 1]), 'RR', 2)), [['P1', 0, 1], [null, 1, 3], ['P2', 3, 4]]);
   });
