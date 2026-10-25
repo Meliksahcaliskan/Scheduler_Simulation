@@ -1,9 +1,6 @@
 # Course handout: not ours to republish in a public repo
 CSE513-Assignment-1.pdf
 
-# AI-computed hand calcs from the planning turn: NOT an oracle (see dev-log). Melik decides whether to delete.
-docs/hand-calculations.md
-
 # LaTeX build output (Phase 5)
 report/*.aux
 report/*.log
