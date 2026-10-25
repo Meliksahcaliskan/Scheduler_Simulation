@@ -167,6 +167,12 @@ How it was found: `gh auth status` → command not found.
 Fix / resolution: Checked with `git ls-remote` that the remote was empty (nothing to overwrite), added it as `origin`, and pushed `main` (7 commits). The remote `main` equals local `6bb32de`. GitHub Pages must be enabled in the repo settings by Melik.
 Commit: Phase 4 log commit
 
+### [12:25] Phase 4, CHECKPOINT
+What happened: Melik enabled GitHub Pages. Live site: https://meliksahcaliskan.github.io/Scheduler_Simulation/
+How it was found: `curl` without credentials → HTTP 200, and the served page is byte-identical to the committed `index.html`. Headless Chrome on the live URL with `#load=T3&run=1`: Gantt P1[0,2) P2[2,4) P1[4,8), 5/5 invariants pass.
+Fix / resolution: Added `README.md` (run locally, demo links, rules, development, tests, dependencies, limitations). The README only states what was verified: Node v22.17.1 and Chrome on Windows. Safari is not listed until Melik confirms it.
+Commit: Phase 4 README commit
+
 ### [10:41] Phase 1, CHECKPOINT
 What happened: validate.js + scheduler.js (4 algorithms + events) done. `node --test` → 36 passed, 0 failed, 0 skipped. No Workload A/B was run or shown.
 How it was found: `node --test`.
