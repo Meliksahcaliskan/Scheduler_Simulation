@@ -1,0 +1,10 @@
+{
+  "name": "cse513-cpu-scheduler",
+  "private": true,
+  "type": "module",
+  "description": "CPU scheduling simulator (FCFS, SJF, SRTF, RR). Zero dependencies.",
+  "scripts": {
+    "test": "node --test",
+    "build": "node scripts/build.mjs"
+  }
+}

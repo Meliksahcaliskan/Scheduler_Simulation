@@ -1,0 +1,18 @@
+{
+  "_howto": "Copy this file to hand.json and fill in the values from your paper calculations. Segments are [pid, start, end] with pid null for idle, half-open [start,end). Averages are exact fractions like \"25/4\". Remove any key you have not calculated yet; missing keys are skipped, never passed.",
+  "A-FCFS": { "workload": "A", "algorithm": "FCFS", "quantum": null, "segments": null, "metrics": null, "averages": null },
+  "A-SJF":  { "workload": "A", "algorithm": "SJF",  "quantum": null, "segments": null, "metrics": null, "averages": null },
+  "A-SRTF": { "workload": "A", "algorithm": "SRTF", "quantum": null, "segments": null, "metrics": null, "averages": null },
+  "A-RR2":  { "workload": "A", "algorithm": "RR",   "quantum": 2,    "segments": null, "metrics": null, "averages": null },
+  "B-FCFS": { "workload": "B", "algorithm": "FCFS", "quantum": null, "segments": null, "metrics": null, "averages": null },
+  "B-SJF":  { "workload": "B", "algorithm": "SJF",  "quantum": null, "segments": null, "metrics": null, "averages": null },
+  "B-SRTF": { "workload": "B", "algorithm": "SRTF", "quantum": null, "segments": null, "metrics": null, "averages": null },
+  "B-RR2":  { "workload": "B", "algorithm": "RR",   "quantum": 2,    "segments": null, "metrics": null, "averages": null },
+  "T1": { "workload": "T1", "algorithm": "FCFS", "quantum": null, "segments": null, "metrics": null, "averages": null },
+  "T2": { "workload": "T2", "algorithm": "SJF",  "quantum": null, "segments": null, "metrics": null, "averages": null },
+  "T3": { "workload": "T3", "algorithm": "SRTF", "quantum": null, "segments": null, "metrics": null, "averages": null },
+  "T4": { "workload": "T4", "algorithm": "RR",   "quantum": 2,    "segments": null, "metrics": null, "averages": null },
+  "T5": { "workload": "T5", "algorithm": "SRTF", "quantum": null, "segments": null, "metrics": null, "averages": null },
+  "T6": { "workload": "T6", "algorithm": "RR",   "quantum": 2,    "segments": null, "metrics": null, "averages": null },
+  "T7": { "workload": "T7", "algorithm": "RR",   "quantum": 2,    "segments": null, "metrics": null, "averages": null }
+}
