@@ -2,30 +2,9 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { simulate, ALGORITHMS } from '../src/scheduler.js';
+import { P, segs, replay } from './helpers.js';
 
-const P = (...rows) => rows.map(([id, arrival, burst]) => ({ id, arrival, burst }));
-const segs = (r) => r.segments.map((s) => [s.pid, s.start, s.end]);
 const EVENT_TYPES = ['arrive', 'dispatch', 'preempt', 'keep', 'quantum-expire', 'complete', 'idle-start', 'idle-end'];
-const CLOSERS = ['complete', 'preempt', 'quantum-expire', 'idle-end'];
-
-// Rebuilds segments from events only (PLAN.md §5.1: events and segments must not drift).
-function replay(events) {
-  const out = [];
-  let open = null;
-  for (const e of events) {
-    if (e.type === 'dispatch' || e.type === 'idle-start') {
-      assert.equal(open, null, `t=${e.t}: ${e.type} while a segment is open`);
-      open = { pid: e.pid, start: e.t };
-    } else if (CLOSERS.includes(e.type)) {
-      assert.notEqual(open, null, `t=${e.t}: ${e.type} without an open segment`);
-      assert.equal(e.pid, open.pid, `t=${e.t}: ${e.type} closes the wrong segment`);
-      out.push([open.pid, open.start, e.t]);
-      open = null;
-    }
-  }
-  assert.equal(open, null, 'segment left open at the end');
-  return out;
-}
 
 // Structural checks applied to every simulation in this file.
 function run(processes, algorithm, quantum) {
