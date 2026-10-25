@@ -1,5 +1,5 @@
 {
-  "_source": "Transcribed by Claude Code from Melik's handwritten 'Example_Solutions - Workload A.pdf' and '... Workload B.pdf' (tests/oracle/). Averages = sum of each hand-written column / 4. T1-T7 not hand-calculated yet (skipped). Melik: check against your paper, then save as tests/oracle/hand.json yourself.",
+  "_source": "Transcribed by Claude Code from Melik's handwritten 'Example_Solutions - Workload A.pdf' and '... Workload B.pdf' (tests/oracle/). Averages = sum of each hand-written column / 4. T1-T3 transcribed from Melik's 'Example_Solutions - TC-1/TC-2/TC-3' PDFs (only the algorithm each test case is defined for). T4-T7 not hand-calculated yet (skipped). Melik checked the values.",
   "A-FCFS": { "workload": "A", "algorithm": "FCFS", "quantum": null,
     "segments": [["P1", 0, 8], ["P2", 8, 12], ["P3", 12, 14], ["P4", 14, 15]],
     "metrics": {
@@ -63,5 +63,24 @@
       "P2": { "firstStart": 4,  "completion": 5,  "turnaround": 3, "waiting": 2, "response": 2 },
       "P3": { "firstStart": 8,  "completion": 10, "turnaround": 2, "waiting": 0, "response": 0 },
       "P4": { "firstStart": 10, "completion": 11, "turnaround": 2, "waiting": 1, "response": 1 } },
-    "averages": { "turnaround": "11/4", "waiting": "4/4", "response": "3/4" } }
+    "averages": { "turnaround": "11/4", "waiting": "4/4", "response": "3/4" } },
+  "T1": { "workload": "T1", "algorithm": "FCFS", "quantum": null,
+    "segments": [[null, 0, 3], ["P1", 3, 5], [null, 5, 10], ["P2", 10, 11]],
+    "metrics": {
+      "P1": { "firstStart": 3,  "completion": 5,  "turnaround": 2, "waiting": 0, "response": 0 },
+      "P2": { "firstStart": 10, "completion": 11, "turnaround": 1, "waiting": 0, "response": 0 } },
+    "averages": { "turnaround": "3/2", "waiting": "0/2", "response": "0/2" } },
+  "T2": { "workload": "T2", "algorithm": "SJF", "quantum": null,
+    "segments": [["P3", 0, 1], ["P1", 1, 4], ["P2", 4, 7]],
+    "metrics": {
+      "P1": { "firstStart": 1, "completion": 4, "turnaround": 4, "waiting": 1, "response": 1 },
+      "P2": { "firstStart": 4, "completion": 7, "turnaround": 7, "waiting": 4, "response": 4 },
+      "P3": { "firstStart": 0, "completion": 1, "turnaround": 1, "waiting": 0, "response": 0 } },
+    "averages": { "turnaround": "12/3", "waiting": "5/3", "response": "5/3" } },
+  "T3": { "workload": "T3", "algorithm": "SRTF", "quantum": null,
+    "segments": [["P1", 0, 2], ["P2", 2, 4], ["P1", 4, 8]],
+    "metrics": {
+      "P1": { "firstStart": 0, "completion": 8, "turnaround": 8, "waiting": 2, "response": 0 },
+      "P2": { "firstStart": 2, "completion": 4, "turnaround": 2, "waiting": 0, "response": 0 } },
+    "averages": { "turnaround": "10/2", "waiting": "2/2", "response": "0/2" } }
 }

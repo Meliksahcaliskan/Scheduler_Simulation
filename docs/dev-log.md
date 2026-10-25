@@ -214,3 +214,15 @@ What happened: First run of the oracle against the engine. All 8 A/B cases pass,
 How it was found: `node --test`.
 Fix / resolution: No discrepancies. Rule 3 is now satisfied (hand.json committed), so A/B results may be shown and used in the report.
 Commit: hand.json commit
+
+### [18:48] Phase 5 prep, DECISION
+What happened: Melik asked me to add T1–T3 to hand.json because "their results are same". No hand pages were in the repo at that point.
+How it was found: `git status` / `ls tests/oracle` showed no new files.
+Fix / resolution: Rejected filling hand.json from engine/website output. That would make the oracle compare the engine with itself, and the report would call engine output "hand-calculated". Melik chose to add his pages instead: `Example_Solutions - TC-l.pdf`, `TC-2.pdf`, `Tc-3.pdf` (each has all 4 algorithms). Only the case each test is defined for went into hand.json (T1 FCFS, T2 SJF, T3 SRTF), because the format has one slot per T-case. Two inconsistencies within the T2 SJF page were resolved by the page itself: the first Gantt block (0–1) is labeled "P2" but is drawn in P3's color, and the table has P3 completing at 1, so it was entered as P3. P3's response is written "1−1 = 0", so I used the value 0 (first start 0, from the Gantt).
+Commit: T1–T3 hand.json commit
+
+### [18:48] Phase 5 prep, TEST
+What happened: Oracle T1, T2, T3: self-consistent and equal to the engine. `node --test` → 90 passed, 0 failed, 4 skipped (T4–T7).
+How it was found: `node --test`.
+Fix / resolution: No discrepancies.
+Commit: T1–T3 hand.json commit
