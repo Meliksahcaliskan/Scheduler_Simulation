@@ -76,7 +76,7 @@ label.check { display: inline-flex; align-items: center; gap: 5px; }
 td.row-error { text-align: left; color: var(--bad); white-space: normal; }
 
 /* Gantt chart */
-.gantt { position: relative; height: 78px; margin: 6px 14px 4px; } /* side margin keeps the first/last tick labels visible */
+.gantt { position: relative; height: 78px; margin: 6px 26px 4px; } /* side margin keeps the first/last tick and marker labels visible */
 .gantt-block {
   position: absolute; top: 0; height: 46px; background: var(--c, #ccd);
   border: 1px solid rgba(0, 0, 0, .45); box-shadow: inset -2px 0 0 rgba(255, 255, 255, .9);
@@ -115,3 +115,54 @@ td.row-error { text-align: left; color: var(--bad); white-space: normal; }
 tr.st-running td { background: #e6f0ff; font-weight: 700; }
 tr.st-done td { color: var(--muted); }
 td.best { color: var(--good); font-weight: 700; }
+
+/* Tier 2: Gantt grid + markers */
+.grid-line { position: absolute; top: 0; height: 46px; width: 1px; background: rgba(0, 0, 0, .13); z-index: 1; pointer-events: none; }
+.mark {
+  position: absolute; transform: translateX(-50%); padding: 0 4px; border-radius: 3px; line-height: 15px;
+  font-size: .68rem; white-space: nowrap; background: var(--c, #eee); border: 1px solid rgba(0, 0, 0, .3);
+}
+.mark i { font-style: normal; margin-right: 2px; font-size: .6rem; }
+.mark.completion { border-style: dashed; }
+
+/* Linked hover between the Gantt and the results table */
+#results.hovering .gantt-block:not(.idle):not(.hl), #results.hovering .mark:not(.hl) { opacity: .3; }
+#results.hovering #metrics-table tbody tr.hl td { background: #e6f0ff; }
+#metrics-table tbody tr { cursor: default; }
+
+/* Verification badge */
+.verify-box { margin-top: 16px; border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; }
+.verify-box summary { cursor: pointer; font-weight: 600; color: var(--good); }
+.verify-box.fail { border-color: var(--bad); background: #fdecea; }
+.verify-box.fail summary { color: var(--bad); }
+.verify-box .verify { margin-top: 6px; }
+
+/* Stepper: remaining table beside the event log */
+.step-split { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-start; }
+.log-wrap { flex: 1; min-width: 280px; }
+.event-log {
+  position: relative; list-style: none; margin: 4px 0 0; padding: 0; max-height: 260px; overflow-y: auto;
+  border: 1px solid var(--line); border-radius: 6px; font-size: .85rem;
+}
+.event-log li { padding: 3px 8px; border-bottom: 1px solid #eef0f3; cursor: pointer; }
+.event-log li:hover { background: #f3f6fb; }
+.event-log li.current { background: #e6f0ff; box-shadow: inset 3px 0 0 var(--accent); }
+.log-t { display: inline-block; min-width: 3.6em; color: var(--muted); font-variant-numeric: tabular-nums; }
+.chip { transition: transform .35s ease; }
+.chip.enter { animation: chip-in .35s ease; }
+@keyframes chip-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .chip { transition: none; } .chip.enter { animation: none; } }
+
+/* Compare: stacked Gantts + bars */
+.stack-row { display: flex; align-items: flex-start; }
+.stack-label { flex: 0 0 64px; padding-top: 18px; font-weight: 700; font-size: .85rem; }
+.bars { display: flex; flex-wrap: wrap; gap: 12px 28px; margin-top: 14px; }
+.bar-group { flex: 1; min-width: 240px; }
+.bar-row { display: flex; align-items: center; gap: 8px; margin: 3px 0; font-size: .85rem; }
+.bar-name { flex: 0 0 3.2em; }
+.bar-track { flex: 1; height: 14px; background: #eef0f3; border-radius: 3px; overflow: hidden; }
+.bar { display: block; height: 100%; background: #9db6e8; }
+.bar-value { flex: 0 0 7.5em; text-align: right; font-variant-numeric: tabular-nums; }
+.bar-row.best .bar { background: var(--good); }
+.bar-row.best .bar-value { color: var(--good); font-weight: 700; }
+.link-box input { width: 100%; margin-top: 4px; }

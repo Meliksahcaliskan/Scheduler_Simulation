@@ -226,3 +226,27 @@ What happened: Oracle T1, T2, T3: self-consistent and equal to the engine. `node
 How it was found: `node --test`.
 Fix / resolution: No discrepancies.
 Commit: T1–T3 hand.json commit
+
+### [18:54] UI Tier 2, DECISION
+What happened: Tier 2 (2.1–2.7) done. Gantt ▲ arrival / ● completion markers; linked hover between Gantt and results rows; faint unit grid (every 1 / 5 / 10 units depending on length); Compare tab with the 4 Gantts on one time scale plus pure-CSS bars; stepper event log (click to jump), Prev time / Next time (Shift + ←/→), FLIP slide animation for ready-queue chips (off with prefers-reduced-motion); verification as a collapsed "5/5 invariants pass" badge that opens itself in red on a failure; Copy link.
+How it was found: UI-IMPROVEMENTS.md Tier 2.
+Fix / resolution: "Next time" goes to the *last* event at the next distinct t, so the state shown is the decision made at that time. Copy link encodes each field with encodeURIComponent and joins with raw ':' and ','. The page now parses the hash by hand (split first, then decode each field), so IDs like "a:b", "c,d" survive a round trip and old links such as `p=P1:0:3` still work. URLSearchParams was rejected because it decodes before splitting. Clipboard: in headless Chrome on file:// `navigator.clipboard.writeText` was refused, and the fallback (the link selected in a text field) was shown. Safari not tested.
+Commit: UI Tier 2 commit
+
+### [18:54] UI Tier 2, BUG
+What happened: (1) Marker labels at t=0 and at the end were partly clipped by the scroll container. (2) Labels for times one unit apart could overlap, because only equal times were stacked.
+How it was found: Headless Chrome screenshot of Workload A, RR q=2.
+Fix / resolution: Side margin 14 → 26 px. Each label now goes into the first row where it does not overlap the previous label (width estimated from the ID length).
+Commit: UI Tier 2 commit
+
+### [18:54] UI Tier 2, TEST-FAIL
+What happened: My probe check "hover row → blocks" failed. It expected 2 highlighted P1 blocks on T3.
+How it was found: Headless Chrome probe.
+Fix / resolution: The expectation was wrong, not the page: the probe had switched T3 to RR, where P1 is 3 slices ([0,2), [4,6), [6,8); RR never merges). A recheck shows 3 P1 blocks and all 3 highlighted, with the row highlighted too.
+Commit: UI Tier 2 commit
+
+### [18:54] UI Tier 2, CHECKPOINT
+What happened: `node --test` → 90 passed, 0 failed, 4 skipped. Headless-Chrome probe over file://: 21/22 PASS on the first run plus the corrected recheck (Tier 1 regressions: run on load, algorithm buttons, invalid → dim + marked field, auto-run off/Ctrl+Enter; Tier 2: badge, markers, grid, hover both ways, log, time jumps, Shift+arrows, log click, stacked Gantts with equal widths, 12 bars, copy-link round trip with IDs "a:b" and "c,d"). 400 px: no horizontal scroll (scrollWidth 385).
+How it was found: `node --test`, probes, screenshots (A RR results, A compare, T4 stepper, B SRTF).
+Fix / resolution: Safari still not tested.
+Commit: UI Tier 2 commit

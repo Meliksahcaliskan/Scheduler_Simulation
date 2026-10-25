@@ -22,7 +22,9 @@ const READY_LABELS = {
 const AVERAGE_KEYS = ['turnaround', 'waiting', 'response'];
 const TABS = { results: 'results', step: 'stepper', compare: 'compare' }; // tab name → panel id
 const AUTO_RUN_DELAY_MS = 200;
-const view = { rows: [], algorithm: 'FCFS', tab: 'results', run: null, compare: null, step: 0, timer: null, autoTimer: null };
+const MARK_TOP = 72; // px below the chart top where the marker rows start
+const MARK_ROW = 16;
+const view = { rows: [], algorithm: 'FCFS', tab: 'results', run: null, compare: null, step: 0, timer: null, autoTimer: null, logFor: null };
 
 const byId = (id) => document.getElementById(id);
 
@@ -259,10 +261,8 @@ function setTab(tab, updateHash) {
   }
   syncQuantum();
   if (updateHash) {
-    const params = new URLSearchParams(location.hash.slice(1));
-    params.set('tab', tab);
-    // Some browsers refuse URL rewrites on file://; the tab still works, it just isn't kept in the URL.
-    try { history.replaceState(null, '', `#${params}`); } catch { /* ignore */ }
+    const parts = location.hash.slice(1).split('&').filter((x) => x !== '' && !x.startsWith('tab='));
+    replaceHash([...parts, `tab=${tab}`].join('&'));
   }
   renderTab();
 }
@@ -287,15 +287,38 @@ function renderResults() {
   renderMetrics(byId('metrics-table'), result);
   byId('verify-list').replaceChildren(...checks.map((c) => h('li', { class: c.pass ? 'pass' : 'fail' },
     c.pass ? '✅ ' : '❌ ', c.name, c.pass ? null : h('div', { class: 'detail' }, c.detail))));
+  // A collapsed badge while everything passes; a failure is opened and shown in red.
+  const passed = checks.filter((c) => c.pass).length;
+  const allPass = passed === checks.length;
+  byId('verify-summary').textContent = `${allPass ? '✅' : '❌'} ${passed}/${checks.length} invariants pass${allPass ? '' : ': see below'}`;
+  byId('verify').classList.toggle('fail', !allPass);
+  if (!allPass) byId('verify').open = true;
 }
 
+// Linked hover (2.2): a Gantt block or a results row highlights that process in both.
+function setHover(pid) {
+  const panel = byId('results');
+  panel.classList.toggle('hovering', pid !== null);
+  for (const el of panel.querySelectorAll('[data-pid]')) el.classList.toggle('hl', el.dataset.pid === pid);
+}
+
+// Faint unit grid: every unit for short charts, coarser for long ones.
+function gridStep(end) {
+  return end <= 40 ? 1 : end <= 200 ? 5 : 10;
+}
+
+// One chart: blocks, grid, labeled ticks at segment boundaries and, with markers, ▲ arrivals / ● completions.
 // upTo = Infinity draws the whole chart; a finite t reveals only [0, t) (stepper).
-function renderGantt(container, segments, processes, upTo, showSlices) {
+// opts.unit fixes the scale (Compare stacks several charts on one scale); opts.markers = false omits the markers.
+function buildGantt(segments, processes, upTo, showSlices, opts) {
   const colorOf = new Map(processes.map((p, i) => [p.id, processColor(i)]));
   const end = segments.length > 0 ? segments[segments.length - 1].end : 0;
-  const available = Math.max(300, (container.clientWidth || 900) - 32);
-  const unit = Math.max(24, Math.min(60, Math.floor(available / Math.max(end, 1))));
+  const unit = opts.unit;
   const chart = h('div', { class: 'gantt', style: { width: `${end * unit + 2}px` } });
+  const step = gridStep(end);
+  for (let x = step; x < end; x += step) {
+    chart.append(h('div', { class: 'grid-line', style: { left: `${x * unit}px` } }));
+  }
   const ticks = new Set([0]);
   for (const s of segments) {
     if (s.start >= upTo) break;
@@ -310,7 +333,10 @@ function renderGantt(container, segments, processes, upTo, showSlices) {
       title: `${name}: [${s.start}, ${s.end}), ${s.end - s.start} unit(s)${slice}`,
       style: { left: `${s.start * unit}px`, width: `${(shownEnd - s.start) * unit}px` },
     }, h('span', {}, name), slice ? h('small', {}, `#${s.sliceIndex + 1}`) : null);
-    if (!idle) block.style.setProperty('--c', colorOf.get(s.pid));
+    if (!idle) {
+      block.style.setProperty('--c', colorOf.get(s.pid));
+      block.dataset.pid = s.pid;
+    }
     chart.append(block);
   }
   for (const x of [...ticks].sort((a, b) => a - b)) {
@@ -319,7 +345,44 @@ function renderGantt(container, segments, processes, upTo, showSlices) {
   if (Number.isFinite(upTo)) {
     chart.append(h('div', { class: 'gantt-cursor', title: `t = ${upTo}`, style: { left: `${Math.min(upTo, end) * unit}px` } }));
   }
-  container.replaceChildren(chart);
+  if (opts.markers !== false) addMarkers(chart, segments, processes, upTo, unit, colorOf);
+  return chart;
+}
+
+// Arrival (▲) and completion (●) markers under the axis. Each label goes into the first row where it
+// does not overlap the previous label (widths estimated from the text), so close or equal times stack downwards.
+function addMarkers(chart, segments, processes, upTo, unit, colorOf) {
+  const completion = new Map();
+  for (const s of segments) if (s.pid !== null) completion.set(s.pid, s.end);
+  const marks = [];
+  for (const p of processes) marks.push({ t: p.arrival, pid: p.id, kind: 'arrival', symbol: '▲' });
+  for (const p of processes) if (completion.has(p.id)) marks.push({ t: completion.get(p.id), pid: p.id, kind: 'completion', symbol: '●' });
+  const rowEnds = []; // right edge (px) of the last label in each row
+  for (const m of marks.filter((x) => x.t <= upTo).sort((x, y) => x.t - y.t)) {
+    const width = 16 + [...m.pid].length * 7;
+    const left = m.t * unit - width / 2;
+    let row = rowEnds.findIndex((right) => right + 2 <= left);
+    if (row === -1) row = rowEnds.push(0) - 1;
+    rowEnds[row] = left + width;
+    const mark = h('div', {
+      class: `mark ${m.kind}`, title: `${m.pid} ${m.kind === 'arrival' ? 'arrives' : 'completes'} at t = ${m.t}`,
+      style: { left: `${m.t * unit}px`, top: `${MARK_TOP + row * MARK_ROW}px` },
+    }, h('i', {}, m.symbol), m.pid);
+    mark.style.setProperty('--c', colorOf.get(m.pid));
+    mark.dataset.pid = m.pid;
+    chart.append(mark);
+  }
+  chart.style.height = `${MARK_TOP + rowEnds.length * MARK_ROW + 4}px`;
+}
+
+function ganttUnit(container, end) {
+  const available = Math.max(300, (container.clientWidth || 900) - 56);
+  return Math.max(24, Math.min(60, Math.floor(available / Math.max(end, 1))));
+}
+
+function renderGantt(container, segments, processes, upTo, showSlices) {
+  const end = segments.length > 0 ? segments[segments.length - 1].end : 0;
+  container.replaceChildren(buildGantt(segments, processes, upTo, showSlices, { unit: ganttUnit(container, end) }));
 }
 
 function renderMetrics(table, result) {
@@ -327,7 +390,7 @@ function renderMetrics(table, result) {
     ['completion', 'Completion'], ['turnaround', 'Turnaround'], ['waiting', 'Waiting'], ['response', 'Response']];
   table.replaceChildren(
     h('thead', {}, h('tr', {}, cols.map(([, label]) => h('th', {}, label)))),
-    h('tbody', {}, result.metrics.map((m, i) => h('tr', {}, cols.map(([k]) => h('td', {}, k === 'pid' ? swatch(i) : null, m[k]))))),
+    h('tbody', {}, result.metrics.map((m, i) => h('tr', { 'data-pid': m.pid }, cols.map(([k]) => h('td', {}, k === 'pid' ? swatch(i) : null, m[k]))))),
     h('tfoot', {}, h('tr', {}, h('th', { colSpan: 5 }, 'Average'), AVERAGE_KEYS.map((k) => h('td', {}, formatAverage(result.averages[k]))))),
   );
 }
@@ -346,6 +409,27 @@ function renderCompare() {
           h('td', {}, r.ok ? '✅ all pass' : '❌ failed')]
         : h('td', { colSpan: 4, class: 'row-error' }, `Not run: ${r.error}`)))),
   );
+
+  // All charts on one time scale, so the same x is the same time in every row.
+  const { processes } = view.run;
+  const container = byId('compare-gantts');
+  const end = Math.max(...valid.map((r) => r.result.segments[r.result.segments.length - 1].end));
+  const unit = ganttUnit(container, end + 3); // leave room for the row labels
+  container.replaceChildren(h('div', { class: 'gantt-stack' }, valid.map((r) => h('div', { class: 'stack-row' },
+    h('div', { class: 'stack-label' }, r.a === 'RR' ? `RR q=${r.q}` : r.a),
+    buildGantt(r.result.segments, processes, Infinity, r.a === 'RR', { unit, markers: false })))));
+
+  // Pure-CSS bars: one group per average, bar length = value / largest value in that group.
+  byId('compare-bars').replaceChildren(...AVERAGE_KEYS.map((k) => {
+    const top = Math.max(...valid.map((r) => r.result.averages[k].num), 1);
+    return h('div', { class: 'bar-group' }, h('div', { class: 'lbl' }, `Average ${k}`), valid.map((r) => {
+      const { num } = r.result.averages[k];
+      return h('div', { class: `bar-row${num === best[k] ? ' best' : ''}` },
+        h('span', { class: 'bar-name' }, r.a),
+        h('span', { class: 'bar-track' }, h('span', { class: 'bar', style: { width: `${(100 * num) / top}%` } })),
+        h('span', { class: 'bar-value' }, formatAverage(r.result.averages[k])));
+    }));
+  }));
 }
 
 // ---- Stepper ----
@@ -387,9 +471,10 @@ function renderStep() {
     const key = algorithm === 'FCFS' ? `arrival ${p.arrival}` : algorithm === 'SJF' ? `burst ${p.burst}` : `remaining ${x.remaining}`;
     const chip = h('span', { class: 'chip' }, `${x.pid} (${key})`);
     chip.style.setProperty('--c', processColor(indexOf.get(x.pid)));
+    chip.dataset.pid = x.pid;
     return chip;
   });
-  byId('st-ready').replaceChildren(...(chips.length > 0 ? chips : [h('span', { class: 'muted' }, 'empty')]));
+  animateChips(byId('st-ready'), chips.length > 0 ? chips : [h('span', { class: 'muted' }, 'empty')]);
   byId('st-message').replaceChildren(h('span', { class: 'badge' }, e.type), e.detail);
   renderGantt(byId('st-gantt'), result.segments, processes, e.t, algorithm === 'RR');
   byId('st-remaining').replaceChildren(
@@ -398,11 +483,73 @@ function renderStep() {
       h('td', {}, swatch(indexOf.get(p.id)), p.id), h('td', {}, p.arrival), h('td', {}, p.burst), h('td', {}, remaining), h('td', {}, status)))),
   );
 
+  renderLog(events, k);
+
   byId('st-reset').disabled = k === 0;
   byId('st-prev').disabled = k === 0;
+  byId('st-prev-time').disabled = timeJump(events, k, -1) === k;
   byId('st-next').disabled = k === last;
+  byId('st-next-time').disabled = k === last;
   byId('st-finish').disabled = k === last;
   byId('st-play').textContent = view.timer ? '⏸ Pause' : '▶ Play';
+}
+
+// Ready-queue chips slide from their old position (FLIP); a chip that just joined fades in.
+function animateChips(container, chips) {
+  const before = new Map([...container.children].filter((c) => c.dataset.pid !== undefined)
+    .map((c) => [c.dataset.pid, c.getBoundingClientRect()]));
+  container.replaceChildren(...chips);
+  for (const chip of chips) {
+    if (chip.dataset.pid === undefined) continue;
+    const old = before.get(chip.dataset.pid);
+    if (!old) {
+      chip.classList.add('enter');
+      continue;
+    }
+    const now = chip.getBoundingClientRect();
+    const dx = old.left - now.left;
+    const dy = old.top - now.top;
+    if (dx === 0 && dy === 0) continue;
+    chip.style.transition = 'none';
+    chip.style.transform = `translate(${dx}px, ${dy}px)`;
+    chip.getBoundingClientRect(); // apply the start position before transitioning back
+    chip.style.transition = '';
+    chip.style.transform = '';
+  }
+}
+
+// The log is built once per run; each step only moves the highlight.
+function renderLog(events, k) {
+  const log = byId('st-log');
+  if (view.logFor !== view.run) {
+    log.replaceChildren(...events.map((e, i) => h('li', { onclick: () => goTo(i), title: 'Jump to this step' },
+      h('span', { class: 'log-t' }, `t=${e.t}`), h('span', { class: 'badge' }, e.type), e.detail)));
+    view.logFor = view.run;
+  }
+  const current = log.querySelector('li.current');
+  if (current) current.classList.remove('current');
+  const item = log.children[k];
+  item.classList.add('current');
+  // Scroll inside the log only (scrollIntoView could also scroll the page during playback).
+  if (item.offsetTop < log.scrollTop) log.scrollTop = item.offsetTop;
+  else if (item.offsetTop + item.offsetHeight > log.scrollTop + log.clientHeight) {
+    log.scrollTop = item.offsetTop + item.offsetHeight - log.clientHeight;
+  }
+}
+
+// Index of the last event at the previous (dir -1) or next (dir +1) distinct time; k itself if there is none.
+function timeJump(events, k, dir) {
+  const t = events[k].t;
+  if (dir > 0) {
+    const i = events.findIndex((e) => e.t > t);
+    if (i === -1) return events.length - 1;
+    let j = i;
+    while (j + 1 < events.length && events[j + 1].t === events[i].t) j++;
+    return j;
+  }
+  let i = k;
+  while (i >= 0 && events[i].t === t) i--;
+  return i < 0 ? k : i;
 }
 
 function goTo(k) {
@@ -435,16 +582,65 @@ function togglePlayback() {
   renderStep();
 }
 
+// ---- Links ----
+
+// Some browsers refuse URL rewrites on file://; the page still works, the state just isn't kept in the URL.
+function replaceHash(hash) {
+  try { history.replaceState(null, '', `#${hash}`); } catch { /* ignore */ }
+}
+
+// Hash values are decoded per field, so IDs containing : , & or % survive a round trip.
+function decodeField(text) {
+  try { return decodeURIComponent(text); } catch { return text; }
+}
+
+function parseHash(hash) {
+  const params = new Map();
+  for (const part of hash.split('&')) {
+    if (part === '') continue;
+    const at = part.indexOf('=');
+    params.set(at === -1 ? part : part.slice(0, at), at === -1 ? '' : part.slice(at + 1));
+  }
+  return params;
+}
+
+function scenarioHash() {
+  const p = view.rows.map((r) => [r.id, r.arrival, r.burst].map((v) => encodeURIComponent(String(v).trim())).join(':')).join(',');
+  return `p=${p}&algo=${view.algorithm}&q=${encodeURIComponent(byId('inp-quantum').value.trim())}&tab=${view.tab}`;
+}
+
+async function copyLink() {
+  const hash = scenarioHash();
+  replaceHash(hash);
+  const url = `${location.href.split('#')[0]}#${hash}`;
+  const status = byId('link-status');
+  byId('link-box').hidden = true;
+  try {
+    await navigator.clipboard.writeText(url);
+    status.textContent = 'Link copied.';
+  } catch {
+    // No clipboard access (e.g. some browsers on file://): show the link selected instead.
+    status.textContent = '';
+    const text = byId('link-text');
+    text.value = url;
+    byId('link-box').hidden = false;
+    text.focus();
+    text.select();
+  }
+}
+
 // ---- Setup ----
 
 // Demo/test links, e.g. index.html#load=T3&algo=SRTF&step=4 or #p=P1:0:3,P2:1:2&algo=RR&q=1&tab=compare.
 // The page always runs on load; run=1 is still accepted. step= opens the stepper, compare=1 the comparison.
 function applyHash() {
-  const params = new URLSearchParams(location.hash.slice(1));
+  const raw = parseHash(location.hash.slice(1));
+  const params = new Map([...raw].map(([k, v]) => [k, decodeField(v)]));
   if (WORKLOADS[params.get('load')]) loadWorkload(params.get('load'));
-  if (params.has('p')) {
-    view.rows = params.get('p').split(',').filter((s) => s !== '').map((s) => {
-      const [id = '', arrival = '', burst = ''] = s.split(':');
+  if (raw.has('p')) {
+    // Split the raw value first, then decode each field.
+    view.rows = raw.get('p').split(',').filter((s) => s !== '').map((s) => {
+      const [id = '', arrival = '', burst = ''] = s.split(':').map(decodeField);
       return { id, arrival, burst };
     });
     renderEditor();
@@ -452,7 +648,7 @@ function applyHash() {
   if (ALGORITHMS.includes(params.get('algo'))) setAlgorithm(params.get('algo'));
   if (params.has('q')) byId('inp-quantum').value = params.get('q');
   const fallback = params.has('compare') ? 'compare' : params.has('step') ? 'step' : 'results';
-  const tab = params.get('tab') in TABS ? params.get('tab') : fallback;
+  const tab = Object.keys(TABS).includes(params.get('tab')) ? params.get('tab') : fallback;
   view.tab = tab;
   run();
   setTab(tab, false);
@@ -489,11 +685,21 @@ function initUi() {
   byId('q-inc').addEventListener('click', () => stepQuantum(1));
   byId('chk-auto').addEventListener('change', (e) => { if (e.target.checked) run(); });
   byId('btn-run').addEventListener('click', run);
+  byId('btn-link').addEventListener('click', copyLink);
+  const results = byId('results');
+  results.addEventListener('mouseover', (e) => {
+    const target = e.target.closest('[data-pid]');
+    setHover(target ? target.dataset.pid : null);
+  });
+  results.addEventListener('mouseleave', () => setHover(null));
   for (const name of Object.keys(TABS)) byId(`tab-${name}`).addEventListener('click', () => setTab(name, true));
 
   byId('st-reset').addEventListener('click', () => goTo(0));
   byId('st-prev').addEventListener('click', () => goTo(view.step - 1));
   byId('st-next').addEventListener('click', () => goTo(view.step + 1));
+  const jump = (dir) => { if (view.run) goTo(timeJump(view.run.result.events, view.step, dir)); };
+  byId('st-prev-time').addEventListener('click', () => jump(-1));
+  byId('st-next-time').addEventListener('click', () => jump(1));
   byId('st-finish').addEventListener('click', () => goTo(Infinity));
   byId('st-play').addEventListener('click', togglePlayback);
   byId('st-speed').addEventListener('change', () => {
@@ -506,8 +712,8 @@ function initUi() {
       return;
     }
     if (!view.run || view.tab !== 'step' || e.target.closest('input, select, textarea')) return;
-    if (e.key === 'ArrowRight') goTo(view.step + 1);
-    if (e.key === 'ArrowLeft') goTo(view.step - 1);
+    if (e.key === 'ArrowRight') e.shiftKey ? jump(1) : goTo(view.step + 1);
+    if (e.key === 'ArrowLeft') e.shiftKey ? jump(-1) : goTo(view.step - 1);
   });
   let resizeTimer = null;
   window.addEventListener('resize', () => {

@@ -56,6 +56,14 @@
         <label class="check"><input type="checkbox" id="chk-auto" checked> Auto-run on change</label>
         <span class="muted kbd">Ctrl/⌘ + Enter</span>
       </div>
+      <div class="toolbar">
+        <button type="button" id="btn-link" title="Put the current processes, algorithm, quantum and tab into a link">🔗 Copy link</button>
+        <span id="link-status" class="muted" role="status"></span>
+      </div>
+      <div id="link-box" class="link-box" hidden>
+        <input id="link-text" readonly aria-label="Link to this scenario">
+        <p class="note">Copying is not available here: the link is selected, press Ctrl/⌘ + C.</p>
+      </div>
       <div id="errors" class="errors" role="alert" hidden></div>
     </section>
   </div>
@@ -76,23 +84,28 @@
         <h2>Results: <span id="results-title"></span></h2>
         <h3>Gantt chart</h3>
         <div id="gantt" class="gantt-wrap"></div>
-        <p class="note">Each block is one interval [start, end). Grey hatched blocks are CPU idle time.
+        <p class="note">Each block is one interval [start, end). Grey hatched blocks are CPU idle time. Below the axis: ▲ = arrival, ● = completion.
+          Hover a block or a table row to highlight that process.
           In round robin, every quantum slice is its own block (#n = slice number of that process), so consecutive slices stay visible.</p>
         <h3>Per-process metrics</h3>
         <div class="table-wrap"><table id="metrics-table" class="data"></table></div>
         <p class="note">Turnaround = Completion − Arrival · Waiting = Turnaround − CPU burst · Response = First start − Arrival.
           Averages are shown rounded and as exact fractions.</p>
-        <h3>Verification</h3>
-        <ul id="verify-list" class="verify"></ul>
+        <details id="verify" class="verify-box">
+          <summary id="verify-summary"></summary>
+          <ul id="verify-list" class="verify"></ul>
+        </details>
       </section>
 
       <section class="card tab-panel" id="stepper" role="tabpanel" aria-labelledby="tab-step" hidden>
         <h2>Step-by-step: <span id="st-title"></span></h2>
         <div class="toolbar">
           <button type="button" id="st-reset">⏮ Reset</button>
+          <button type="button" id="st-prev-time" title="Previous time (Shift + ←)">◀◀ Prev time</button>
           <button type="button" id="st-prev">◀ Prev</button>
           <button type="button" id="st-play">▶ Play</button>
           <button type="button" id="st-next">Next ▶</button>
+          <button type="button" id="st-next-time" title="Next time (Shift + →)">Next time ▶▶</button>
           <button type="button" id="st-finish">⏭ Finish</button>
           <label>Speed
             <select id="st-speed">
@@ -110,13 +123,23 @@
         </div>
         <p id="st-message" class="message"></p>
         <div id="st-gantt" class="gantt-wrap"></div>
-        <div class="table-wrap"><table id="st-remaining" class="data"></table></div>
-        <p class="note">Tip: ← / → keys step backward and forward.</p>
+        <div class="step-split">
+          <div class="table-wrap"><table id="st-remaining" class="data"></table></div>
+          <div class="log-wrap">
+            <div class="lbl">Event log (click to jump)</div>
+            <ol id="st-log" class="event-log"></ol>
+          </div>
+        </div>
+        <p class="note">Tip: ← / → step one event; Shift + ← / → jump to the previous / next time (the last event at that time).</p>
       </section>
 
       <section class="card tab-panel" id="compare" role="tabpanel" aria-labelledby="tab-compare" hidden>
         <h2>Compare all algorithms</h2>
+        <h3>Gantt charts on one time scale</h3>
+        <div id="compare-gantts" class="gantt-wrap"></div>
+        <h3>Averages</h3>
         <div class="table-wrap"><table id="compare-table" class="data"></table></div>
+        <div id="compare-bars" class="bars"></div>
         <p class="note">Same input, all four algorithms. RR uses the time quantum in section 2 (shown there while this tab is open).
           The lowest value in each column is highlighted.</p>
       </section>

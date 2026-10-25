@@ -19,9 +19,10 @@ On a wide screen the inputs stay on the left and the results on the right.
 1. **Processes:** edit the table (ID, arrival time, CPU burst), add or remove rows (Enter in the last CPU burst adds one), or click **Load Workload A / B** or pick a test case **T1–T7**.
 2. **Algorithm:** click FCFS, SJF, SRTF or RR. The time quantum (− / +) is shown for Round Robin (default 2) and on the Compare tab.
 3. **Auto-run** (on by default) re-runs the simulation after every change. With it off, press **Run simulation** or Ctrl/⌘ + Enter.
-4. **Results** tab: the Gantt chart, the results table with averages, and the verification panel.
-5. **Step-by-step** tab: Play / Pause, Prev / Next (or the ← / → keys), Reset and Finish. Each step shows the time, the running process, the ready queue and the rule behind the decision.
-6. **Compare** tab: average turnaround, waiting and response time of all four algorithms for the same input.
+4. **Results** tab: the Gantt chart (▲ arrivals and ● completions under the axis), the results table with averages, and the verification badge (click to expand; it opens by itself if a check fails). Hovering a Gantt block or a table row highlights that process in both.
+5. **Step-by-step** tab: Play / Pause, Prev / Next (← / →), Prev time / Next time (Shift + ← / →, jumps to the last event at the previous / next time), Reset and Finish. Each step shows the time, the running process, the ready queue and the rule behind the decision. The event log lists every event; click one to jump to it.
+6. **Compare** tab: the four Gantt charts stacked on one time scale, plus average turnaround, waiting and response time of all four algorithms as a table and as bars.
+7. **Copy link** puts the current processes, algorithm, quantum and tab into the URL and copies it. Where the browser blocks the clipboard, the link is shown selected instead.
 
 Invalid input is rejected with a list of every problem, tied to its row and marked on the field itself (e.g. `Row 3: ID "p1" duplicates "P1" in row 1 (IDs are case-insensitive).`).
 
