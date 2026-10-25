@@ -11,3 +11,6 @@ report/*.synctex.gz
 
 .DS_Store
 Thumbs.db
+
+# Phase 6 submission bundle (built from git archive, not tracked)
+submission/
