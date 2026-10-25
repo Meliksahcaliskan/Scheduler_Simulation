@@ -274,3 +274,9 @@ What happened: `node scripts/report-data.mjs`: all 8 worked examples hand = simu
 How it was found: Script output, latexmk, reading every page of the PDF.
 Fix / resolution: Waiting for Melik to review the analysis answers and the AI-use statement and to confirm the name spelling on the title page.
 Commit: Phase 5 commit
+
+### [19:18] Phase 6, CHECKPOINT
+What happened: Submission bundle built in `submission/` (git-ignored): `CSE513-Assignment1-source.zip` (`git archive` of HEAD, so exactly the committed repo; the course handout PDF is excluded by .gitignore) and `CSE513-Assignment1-Report.pdf` (= report/main.pdf).
+How it was found: Clean-room check: extracted the ZIP into a scratch folder → `node --test` 90 passed, 0 failed, 4 skipped; its `index.html` is byte-identical to the committed one and runs over file:// in headless Chrome (Workload A, SRTF: 5/5 invariants). Live site and repo: HTTP 200 without credentials; live page = committed index.html. The PDF has link annotations for the site (3, incl. under the title) and the repo (2). A search of all tracked text files found no student number or e-mail address; the only address in the repo is the git commit author e-mail (Melik's own Gmail).
+Fix / resolution: Rounded the TikZ coordinates in report-data.mjs (float noise like -0.8499999999999999 in generated files; the PDF is unchanged). Open for Melik: Safari / Mac double-click test, final review of the analysis and AI-use statement, upload to Teams.
+Commit: Phase 6 commit
