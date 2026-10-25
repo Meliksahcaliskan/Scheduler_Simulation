@@ -196,3 +196,21 @@ What happened: `node --test` → 68 passed, 0 failed, 15 skipped. A scripted hea
 How it was found: `node --test`, the probe, screenshots (T7 wide, T3 narrow, an all-errors input, T4 compare).
 Fix / resolution: Safari still not tested (Melik's Mac).
 Commit: UI Tier 1 commit
+
+### [17:58] Phase 5 prep, DECISION
+What happened: Melik put his handwritten solutions in `tests/oracle/` as two PDFs (Workload A, Workload B: Gantt + TAT/WT/RT tables for FCFS, SJF, SRTF, RR q=2). hand.json itself was not written.
+How it was found: Melik's message; `ls tests/oracle`.
+Fix / resolution: Rule 2 forbids me writing hand.json, so I transcribed the PDFs into a draft outside the repo (scratchpad `hand.draft.json`) for Melik to check and save as hand.json himself. Values are taken only from his pages. Completion / first start are the first terms of his "X − arrival" entries. Averages are his column sums / 4, because the pages don't state averages. No engine output was used or looked at for A/B. A check of the draft *without the engine* (TAT/WT/RT arithmetic, first start/completion vs his own Gantt, the 5 invariants on his Gantt) passed for all 8 cases. Note: the Workload B page is headed "Workload A", but its process table has B's values.
+Commit: (pending: Melik commits hand.json)
+
+### [18:01] Phase 5 prep, DECISION
+What happened: Melik compared his paper results with the website, said all of them are correct, and asked me to commit the tables.
+How it was found: Melik's message.
+Fix / resolution: Rule 2 (I never write hand.json) was overridden by Melik's explicit request. I did **not** copy the website/engine output: hand.json is the transcription of his handwritten PDFs (the draft checked earlier), so the oracle stays independent of the engine. Melik confirmed that his paper equals the website, so the content is the same either way.
+Commit: hand.json commit
+
+### [18:01] Phase 5 prep, TEST
+What happened: First run of the oracle against the engine. All 8 A/B cases pass, each with two tests: "self-consistent" and "engine matches the hand calculation" (Gantt segments, all 5 metrics per process, the 3 averages as exact fractions). `node --test` → 84 passed, 0 failed, 7 skipped (T1–T7: not hand-calculated).
+How it was found: `node --test`.
+Fix / resolution: No discrepancies. Rule 3 is now satisfied (hand.json committed), so A/B results may be shown and used in the report.
+Commit: hand.json commit
