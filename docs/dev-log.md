@@ -161,6 +161,12 @@ How it was found: `node --test`; screenshots.
 Fix / resolution: Waiting for Melik: Safari double-click test on the Mac, and a manual check of Load A/B (I did not run A/B).
 Commit: Phase 3 commit
 
+### [12:15] Phase 4, DECISION
+What happened: `gh` is not installed, so Melik created the public repo https://github.com/Meliksahcaliskan/Scheduler_Simulation in the browser and asked me to push.
+How it was found: `gh auth status` → command not found.
+Fix / resolution: Checked with `git ls-remote` that the remote was empty (nothing to overwrite), added it as `origin`, and pushed `main` (7 commits). The remote `main` equals local `6bb32de`. GitHub Pages must be enabled in the repo settings by Melik.
+Commit: Phase 4 log commit
+
 ### [10:41] Phase 1, CHECKPOINT
 What happened: validate.js + scheduler.js (4 algorithms + events) done. `node --test` → 36 passed, 0 failed, 0 skipped. No Workload A/B was run or shown.
 How it was found: `node --test`.
