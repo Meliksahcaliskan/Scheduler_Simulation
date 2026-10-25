@@ -174,7 +174,7 @@ export function simulate(processes, algorithm, quantum) {
         segStart = t;
         p.slices++;
         if (p.firstStart === null) p.firstStart = t;
-        const slice = isRR ? ` (slice #${p.slices - 1}, runs up to ${Math.min(quantum, p.remaining)})` : '';
+        const slice = isRR ? ` (slice #${p.slices}, runs up to ${Math.min(quantum, p.remaining)})` : '';
         emit('dispatch', p.id, `t=${t}: ${p.id} dispatched: ${why}${slice}`);
       } else if (idleStart === null) {
         idleStart = t;

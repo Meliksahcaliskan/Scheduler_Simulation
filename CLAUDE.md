@@ -20,4 +20,5 @@ The full plan and spec are in `PLAN.md` (§3 algorithm spec, §4 validation, §6
 
 ## Commands
 - Tests: `node --test`
-- Build (Phase 3+): `node scripts/build.mjs` → `./index.html`
+- Build: `node scripts/build.mjs` → `./index.html` (commit it; `build.test.js` fails if it is stale)
+- Demo/test links: `index.html#load=T3&algo=SRTF&q=2&run=1&step=4`, `#p=P1:0:3,P2:1:2&run=1`, `&compare=1`

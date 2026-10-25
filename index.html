@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CPU Scheduling Simulator</title>
+<style>
+:root {
+  --bg: #f5f6f8; --card: #fff; --ink: #1d2330; --muted: #5b6475; --line: #d9dde5;
+  --accent: #2f6fde; --bad: #b3261e; --good: #2e7d32; --warn: #7a5600;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+header, main, footer { max-width: 1100px; margin: 0 auto; padding: 0 16px; }
+header h1 { margin: 20px 0 4px; font-size: 1.6rem; }
+.sub { color: var(--muted); margin: 0 0 16px; }
+footer { color: var(--muted); font-size: .85rem; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; margin-bottom: 16px; }
+h2 { font-size: 1.15rem; margin: 0 0 10px; }
+h3 { font-size: 1rem; margin: 18px 0 8px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 10px; }
+button, select, input { font: inherit; color: inherit; }
+button { padding: 5px 12px; border: 1px solid var(--line); border-radius: 6px; background: #fff; cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: .45; cursor: default; }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+select, input { padding: 4px 6px; border: 1px solid var(--line); border-radius: 5px; background: #fff; }
+input:disabled { background: #eef0f3; color: var(--muted); }
+.note { color: var(--muted); font-size: .9rem; margin: 6px 0 10px; }
+.warn { color: var(--warn); background: #fff6dc; padding: 6px 10px; border-radius: 6px; }
+.muted { color: var(--muted); }
+.table-wrap, .gantt-wrap { overflow-x: auto; }
+
+table { border-collapse: collapse; }
+th, td { padding: 4px 10px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+thead th { background: #f0f2f6; }
+tfoot th, tfoot td { font-weight: 700; border-top: 2px solid var(--ink); }
+#proc-table input { width: 7.5em; text-align: right; }
+#proc-table input.id { text-align: left; }
+#proc-table td.empty { color: var(--muted); font-style: italic; }
+button.del { padding: 2px 8px; color: var(--bad); }
+
+.errors { border: 1px solid var(--bad); background: #fdecea; color: var(--bad); border-radius: 6px; padding: 8px 12px; }
+.errors ul { margin: 4px 0 0 18px; padding: 0; }
+
+/* Gantt chart */
+.gantt { position: relative; height: 78px; margin: 6px 14px 4px; } /* side margin keeps the first/last tick labels visible */
+.gantt-block {
+  position: absolute; top: 0; height: 46px; background: var(--c, #ccd);
+  border: 1px solid rgba(0, 0, 0, .45); box-shadow: inset -2px 0 0 rgba(255, 255, 255, .9);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-weight: 600; font-size: .85rem; overflow: hidden; white-space: nowrap; line-height: 1.1;
+}
+.gantt-block small { font-weight: 400; font-size: .7rem; }
+.gantt-block.idle {
+  background: repeating-linear-gradient(45deg, #dfe2e8 0 5px, #f3f4f7 5px 10px);
+  color: var(--muted); font-weight: 400; font-style: italic;
+}
+.gantt-block.partial { border-right-style: dashed; }
+.tick { position: absolute; top: 46px; width: 1px; height: 7px; background: var(--ink); }
+.tick span { position: absolute; top: 8px; transform: translateX(-50%); font-size: .75rem; }
+.gantt-cursor { position: absolute; top: -4px; height: 54px; width: 2px; background: var(--bad); }
+
+/* Verification */
+.verify { list-style: none; padding: 0; margin: 0; }
+.verify li { padding: 3px 0; }
+.verify li.fail { color: var(--bad); font-weight: 600; }
+.verify .detail { font-weight: 400; margin-left: 1.8em; font-size: .9rem; }
+
+/* Stepper */
+.counter { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+.step-grid { display: flex; flex-wrap: wrap; gap: 12px 32px; margin: 6px 0 10px; }
+.step-grid .grow { flex: 1; min-width: 260px; }
+.lbl { font-size: .8rem; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+.big { font-size: 1.3rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 4px; }
+.chip { padding: 2px 9px; border-radius: 12px; background: var(--c, #eee); border: 1px solid rgba(0, 0, 0, .3); font-size: .9rem; }
+.message { background: #eef3fc; border-left: 4px solid var(--accent); padding: 8px 12px; margin: 8px 0; }
+.badge {
+  display: inline-block; margin-right: 8px; padding: 1px 6px; border-radius: 4px;
+  background: var(--accent); color: #fff; font: 600 .75rem ui-monospace, Menlo, Consolas, monospace; text-transform: uppercase;
+}
+tr.st-running td { background: #e6f0ff; font-weight: 700; }
+tr.st-done td { color: var(--muted); }
+td.best { color: var(--good); font-weight: 700; }
+</style>
+</head>
+<body>
+<header>
+  <h1>CPU Scheduling Simulator</h1>
+  <p class="sub">FCFS · SJF (non-preemptive) · SRTF (preemptive) · Round Robin. One CPU, one CPU burst per process, no I/O, zero-cost context switches.
+    This simulator models scheduling policies; it does not reproduce Ubuntu's actual scheduler.</p>
+</header>
+<main>
+  <section class="card" id="input-section">
+    <h2>1. Processes</h2>
+    <div class="toolbar">
+      <button type="button" id="btn-load-a">Load Workload A</button>
+      <button type="button" id="btn-load-b">Load Workload B</button>
+      <label>Test case
+        <select id="sel-test"><option value="">Choose…</option></select>
+      </label>
+      <button type="button" id="btn-clear">Clear all</button>
+    </div>
+    <p id="preset-note" class="note" hidden></p>
+    <div class="table-wrap">
+      <table id="proc-table">
+        <thead><tr><th>#</th><th>Process ID</th><th>Arrival time</th><th>CPU burst</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <button type="button" id="btn-add">+ Add process</button>
+    <p class="note">IDs must be unique (case-insensitive). Arrival times are whole numbers ≥ 0; CPU bursts are whole numbers ≥ 1.
+      Ties are broken by earlier arrival, then by earlier row in this table.</p>
+  </section>
+
+  <section class="card">
+    <h2>2. Algorithm</h2>
+    <div class="toolbar">
+      <label>Algorithm <select id="sel-algo"></select></label>
+      <label>Time quantum <input id="inp-quantum" value="2" inputmode="numeric" size="4" aria-label="Round-robin time quantum"></label>
+      <button type="button" id="btn-run" class="primary">Run simulation</button>
+      <button type="button" id="btn-compare">Compare all algorithms</button>
+    </div>
+    <div id="errors" class="errors" role="alert" hidden></div>
+  </section>
+
+  <section class="card" id="results" hidden>
+    <h2>3. Results: <span id="results-title"></span></h2>
+    <p class="note warn stale-note" hidden>The inputs changed after this run. Press <b>Run simulation</b> to update.</p>
+    <h3>Gantt chart</h3>
+    <div id="gantt" class="gantt-wrap"></div>
+    <p class="note">Each block is one interval [start, end). Grey hatched blocks are CPU idle time.
+      In round robin, every quantum slice is its own block (#n = slice number of that process), so consecutive slices stay visible.</p>
+    <h3>Per-process metrics</h3>
+    <div class="table-wrap"><table id="metrics-table" class="data"></table></div>
+    <p class="note">Turnaround = Completion − Arrival · Waiting = Turnaround − CPU burst · Response = First start − Arrival.
+      Averages are shown rounded and as exact fractions.</p>
+    <h3>Verification</h3>
+    <ul id="verify-list" class="verify"></ul>
+  </section>
+
+  <section class="card" id="stepper" hidden>
+    <h2>4. Step-by-step</h2>
+    <p class="note warn stale-note" hidden>The inputs changed after this run. Press <b>Run simulation</b> to update.</p>
+    <div class="toolbar">
+      <button type="button" id="st-reset">⏮ Reset</button>
+      <button type="button" id="st-prev">◀ Prev</button>
+      <button type="button" id="st-play">▶ Play</button>
+      <button type="button" id="st-next">Next ▶</button>
+      <button type="button" id="st-finish">⏭ Finish</button>
+      <label>Speed
+        <select id="st-speed">
+          <option value="1500">Slow</option>
+          <option value="800" selected>Normal</option>
+          <option value="300">Fast</option>
+        </select>
+      </label>
+      <span id="st-counter" class="counter"></span>
+    </div>
+    <div class="step-grid">
+      <div><div class="lbl">Time</div><div id="st-time" class="big"></div></div>
+      <div><div class="lbl">Running</div><div id="st-running" class="big"></div></div>
+      <div class="grow"><div class="lbl" id="st-ready-label"></div><div id="st-ready" class="chips"></div></div>
+    </div>
+    <p id="st-message" class="message"></p>
+    <div id="st-gantt" class="gantt-wrap"></div>
+    <div class="table-wrap"><table id="st-remaining" class="data"></table></div>
+    <p class="note">Tip: ← / → keys step backward and forward.</p>
+  </section>
+
+  <section class="card" id="compare" hidden>
+    <h2>Compare all algorithms</h2>
+    <div class="table-wrap"><table id="compare-table" class="data"></table></div>
+    <p class="note">Same input, all four algorithms (RR uses the quantum above). The lowest value in each column is highlighted.</p>
+  </section>
+</main>
+<footer>
+  <p>CSE513 Assignment 1. Runs entirely in your browser: no server, no network access.</p>
+</footer>
+<script>
+// Generated by scripts/build.mjs from src/. Do not edit this file; edit src/ and rebuild.
+(function () {
+'use strict';
+// ---- src/limits.js ----
+// Provisional input limits (PLAN.md §4). Change them here only.
+const MAX_PROCESSES = 30;
+const MAX_ARRIVAL = 500;
+const MAX_BURST = 100;
+const MAX_QUANTUM = 100;
+const MAX_ID_LENGTH = 12;
+
+
+// ---- src/format.js ----
+// Display formatting. Averages stay exact fractions; rounding happens only here (PLAN.md §3.3).
+
+/** { num, den } → "6.25 (25/4)". Rounds half up using integer math, so no floating-point surprises. */
+function formatAverage({ num, den }) {
+  const hundredths = Math.floor((200 * num + den) / (2 * den));
+  const whole = Math.floor(hundredths / 100);
+  const frac = String(hundredths % 100).padStart(2, '0');
+  return `${whole}.${frac} (${num}/${den})`;
+}
+
+
+// ---- src/validate.js ----
+// Input validation (PLAN.md §4). Returns human-readable errors; [] means valid.
+
+const WHOLE_NUMBER = /^\d+$/;
+const VALID_ALGORITHMS = ['FCFS', 'SJF', 'SRTF', 'RR'];
+
+function asText(value) {
+  return value === null || value === undefined ? '' : String(value).trim();
+}
+
+function wholeNumberError(raw, label, min, max) {
+  const text = asText(raw);
+  const shown = raw === null || raw === undefined ? '' : String(raw);
+  if (!WHOLE_NUMBER.test(text) || Number(text) < min) {
+    return `${label} must be a whole number ≥ ${min} (got "${shown}").`;
+  }
+  if (Number(text) > max) return `${label} must be at most ${max} (got "${text}").`;
+  return null;
+}
+
+/** rows: [{ id, arrival, burst }] with raw (string or number) values from the editor. */
+function validateInput(rows, algorithm, quantum) {
+  const errors = [];
+  if (!VALID_ALGORITHMS.includes(algorithm)) errors.push(`Unknown algorithm "${algorithm}".`);
+  if (rows.length === 0) errors.push('Add at least one process.');
+  if (rows.length > MAX_PROCESSES) {
+    errors.push(`Too many processes: ${rows.length} (at most ${MAX_PROCESSES}).`);
+  }
+
+  const seen = new Map(); // lower-cased ID → { id, row }
+  rows.forEach((r, i) => {
+    const row = i + 1;
+    const id = asText(r.id);
+    if (id === '') {
+      errors.push(`Row ${row}: Process ID is empty.`);
+    } else if ([...id].length > MAX_ID_LENGTH) {
+      errors.push(`Row ${row}: Process ID "${id}" is longer than ${MAX_ID_LENGTH} characters.`);
+    } else {
+      const first = seen.get(id.toLowerCase());
+      if (first) {
+        const note = first.id === id ? '' : ' (IDs are case-insensitive)';
+        errors.push(`Row ${row}: ID "${id}" duplicates "${first.id}" in row ${first.row}${note}.`);
+      } else {
+        seen.set(id.toLowerCase(), { id, row });
+      }
+    }
+    const arrivalError = wholeNumberError(r.arrival, 'Arrival time', 0, MAX_ARRIVAL);
+    if (arrivalError) errors.push(`Row ${row}: ${arrivalError}`);
+    const burstError = wholeNumberError(r.burst, 'CPU burst', 1, MAX_BURST);
+    if (burstError) errors.push(`Row ${row}: ${burstError}`);
+  });
+
+  if (algorithm === 'RR') {
+    const quantumError = wholeNumberError(quantum, 'Time quantum', 1, MAX_QUANTUM);
+    if (quantumError) errors.push(quantumError);
+  }
+  return errors;
+}
+
+/** Converts validated rows into engine input. Call only when validateInput returned []. */
+function toProcesses(rows) {
+  return rows.map((r) => ({ id: asText(r.id), arrival: Number(asText(r.arrival)), burst: Number(asText(r.burst)) }));
+}
+
+
+// ---- src/scheduler.js ----
+// Pure CPU scheduling engine (PLAN.md §3). No DOM, no globals, deterministic.
+// Discrete-time loop: at each integer t the steps run in a fixed order, so
+// segments and events come from the same code path (PLAN.md §3.4, §5.1).
+
+const ALGORITHMS = ['FCFS', 'SJF', 'SRTF', 'RR'];
+
+// Selection keys, smallest wins (PLAN.md §3). RR uses FIFO order instead.
+const SELECTION_KEYS = {
+  FCFS: [['arrival', (p) => p.arrival], ['input row', (p) => p.index]],
+  SJF: [['burst', (p) => p.burst], ['arrival', (p) => p.arrival], ['input row', (p) => p.index]],
+  SRTF: [['remaining', (p) => p.remaining], ['arrival', (p) => p.arrival], ['input row', (p) => p.index]],
+};
+
+function compareByKeys(keys, a, b) {
+  for (const [, get] of keys) {
+    const d = get(a) - get(b);
+    if (d !== 0) return d;
+  }
+  return 0;
+}
+
+function minByKeys(keys, list) {
+  return list.reduce((best, p) => (compareByKeys(keys, p, best) < 0 ? p : best));
+}
+
+// Names the key that decided between the chosen process and the runner-up.
+function explainChoice(keys, chosen, others) {
+  if (others.length === 0) return 'the only ready process';
+  const runnerUp = minByKeys(keys, others);
+  const tied = [];
+  for (const [label, get] of keys) {
+    if (get(chosen) !== get(runnerUp)) {
+      if (tied.length === 0) {
+        return `smallest ${label} (${get(chosen)}; next is ${runnerUp.id} with ${get(runnerUp)})`;
+      }
+      const which = label === 'input row' ? 'earlier input row' : `smaller ${label}`;
+      return `tie on ${tied.join(' and ')} with ${runnerUp.id} → ${which} wins`;
+    }
+    tied.push(label);
+  }
+  return 'the only ready process';
+}
+
+/**
+ * processes: [{ id, arrival, burst }] (already validated, integers).
+ * Returns { segments, metrics, averages, events } as described in PLAN.md §5.1.
+ * Event snapshots are taken after the event is applied; `running` is { pid, remaining } or null.
+ */
+function simulate(processes, algorithm, quantum) {
+  if (!ALGORITHMS.includes(algorithm)) throw new Error(`Unknown algorithm "${algorithm}".`);
+  if (processes.length === 0) throw new Error('No processes to schedule.');
+  const isRR = algorithm === 'RR';
+  if (isRR && !(Number.isInteger(quantum) && quantum >= 1)) {
+    throw new Error('Round robin needs an integer quantum ≥ 1.');
+  }
+
+  const procs = processes.map((p, index) => ({
+    id: p.id, index, arrival: p.arrival, burst: p.burst,
+    remaining: p.burst, firstStart: null, completion: null, slices: 0,
+  }));
+  const arrivalOrder = [...procs].sort((a, b) => a.arrival - b.arrival || a.index - b.index);
+  const keys = SELECTION_KEYS[algorithm];
+
+  const ready = []; // RR: FIFO queue (head = index 0). Others: unordered set, viewed sorted by key.
+  const segments = [];
+  const events = [];
+  let t = 0;
+  let nextArrival = 0;
+  let done = 0;
+  let running = null;
+  let sliceUsed = 0;
+  let segStart = 0;
+  let idleStart = null;
+  // A correct run always ends by (last arrival + total burst). Past that, fail instead of hanging the page.
+  const horizon = arrivalOrder[arrivalOrder.length - 1].arrival + procs.reduce((s, p) => s + p.burst, 0);
+
+  const readyView = () => (isRR ? ready : [...ready].sort((a, b) => compareByKeys(keys, a, b)));
+  const emit = (type, pid, detail) => {
+    events.push({
+      t, type, pid, detail,
+      ready: readyView().map((p) => ({ pid: p.id, remaining: p.remaining })),
+      running: running ? { pid: running.id, remaining: running.remaining } : null,
+    });
+  };
+  const closeSegment = () => {
+    segments.push({ pid: running.id, start: segStart, end: t, sliceIndex: running.slices - 1 });
+  };
+
+  for (;;) {
+    // 1. Completion of the process that ran during [t-1, t).
+    if (running && running.remaining === 0) {
+      closeSegment();
+      const p = running;
+      p.completion = t;
+      done++;
+      running = null;
+      emit('complete', p.id, `t=${t}: ${p.id} completes (received its full burst of ${p.burst})`);
+    }
+    if (done === procs.length) break;
+    if (t > horizon) throw new Error(`Internal error: simulation passed t=${horizon} without finishing.`);
+
+    // 2. Arrivals at exactly t, in (arrival, index) order.
+    const atBoundary = isRR && running !== null && sliceUsed === quantum;
+    const arrived = [];
+    while (nextArrival < arrivalOrder.length && arrivalOrder[nextArrival].arrival <= t) {
+      const p = arrivalOrder[nextArrival++];
+      ready.push(p);
+      arrived.push(p);
+      let detail;
+      if (atBoundary) {
+        detail = `t=${t}: ${p.id} arrives at the quantum boundary → enqueued before ${running.id} (RR rule)`;
+      } else if (isRR) {
+        detail = `t=${t}: ${p.id} arrives → joins the tail of the ready queue`;
+      } else if (running && algorithm !== 'SRTF') {
+        detail = `t=${t}: ${p.id} arrives (burst ${p.burst}) → ready; ${algorithm} is non-preemptive, ${running.id} keeps the CPU`;
+      } else {
+        detail = `t=${t}: ${p.id} arrives (burst ${p.burst}) → ready`;
+      }
+      emit('arrive', p.id, detail);
+    }
+
+    // 3. RR quantum expiry. Same-time arrivals were queued in step 2, so they go first.
+    if (atBoundary) {
+      closeSegment();
+      const p = running;
+      running = null;
+      ready.push(p);
+      const detail = ready.length === 1
+        ? `t=${t}: ${p.id} used its quantum of ${quantum} (${p.remaining} left); no other process is ready → it continues in a new slice`
+        : `t=${t}: ${p.id} used its quantum of ${quantum} (${p.remaining} left) → re-enqueued at the tail`
+          + (arrived.length > 0 ? `, after the processes that arrived at t=${t}` : '');
+      emit('quantum-expire', p.id, detail);
+    }
+
+    // 4. SRTF: decide at every arrival time whether to preempt (strictly shorter only).
+    if (algorithm === 'SRTF' && running && arrived.length > 0) {
+      const best = minByKeys(keys, ready);
+      if (best.remaining < running.remaining) {
+        closeSegment();
+        const p = running;
+        running = null;
+        ready.push(p);
+        emit('preempt', p.id,
+          `t=${t}: ${best.id} (remaining ${best.remaining}) < ${p.id} (remaining ${p.remaining}) → ${p.id} is preempted (SRTF: strictly shorter)`);
+      } else if (best.remaining === running.remaining) {
+        emit('keep', running.id,
+          `t=${t}: ${best.id} (remaining ${best.remaining}) ties ${running.id} (remaining ${running.remaining}) → ${running.id} keeps running (SRTF: equal remaining does not preempt)`);
+      } else {
+        emit('keep', running.id,
+          `t=${t}: shortest ready ${best.id} (remaining ${best.remaining}) is not shorter than ${running.id} (remaining ${running.remaining}) → ${running.id} keeps running`);
+      }
+    }
+
+    // 5. Dispatch if the CPU is free; otherwise start an idle interval.
+    if (!running) {
+      if (ready.length > 0) {
+        if (idleStart !== null) {
+          segments.push({ pid: null, start: idleStart, end: t, sliceIndex: null });
+          idleStart = null;
+          emit('idle-end', null, `t=${t}: idle interval ends`);
+        }
+        let p;
+        let why;
+        if (isRR) {
+          p = ready.shift();
+          why = 'head of the FIFO ready queue';
+        } else {
+          p = minByKeys(keys, ready);
+          ready.splice(ready.indexOf(p), 1);
+          why = explainChoice(keys, p, ready);
+        }
+        running = p;
+        sliceUsed = 0;
+        segStart = t;
+        p.slices++;
+        if (p.firstStart === null) p.firstStart = t;
+        const slice = isRR ? ` (slice #${p.slices}, runs up to ${Math.min(quantum, p.remaining)})` : '';
+        emit('dispatch', p.id, `t=${t}: ${p.id} dispatched: ${why}${slice}`);
+      } else if (idleStart === null) {
+        idleStart = t;
+        emit('idle-start', null,
+          `t=${t}: no process is ready → CPU idle until the next arrival at t=${arrivalOrder[nextArrival].arrival}`);
+      }
+    }
+
+    // 6. Run one time unit.
+    if (running) {
+      running.remaining--;
+      sliceUsed++;
+    }
+    t++;
+  }
+
+  const metrics = procs.map((p) => {
+    const turnaround = p.completion - p.arrival;
+    return {
+      pid: p.id, arrival: p.arrival, burst: p.burst,
+      firstStart: p.firstStart, completion: p.completion,
+      turnaround, waiting: turnaround - p.burst, response: p.firstStart - p.arrival,
+    };
+  });
+  const n = metrics.length;
+  const total = (field) => metrics.reduce((s, m) => s + m[field], 0);
+  const averages = {
+    turnaround: { num: total('turnaround'), den: n },
+    waiting: { num: total('waiting'), den: n },
+    response: { num: total('response'), den: n },
+  };
+
+  return { segments, metrics, averages, events };
+}
+
+
+// ---- src/verify.js ----
+// The five correctness invariants (PLAN.md §10.3). They are computed from the Gantt
+// segments and the process input only, so they do not trust the engine's bookkeeping.
+
+function segLabel(s) {
+  return `${s.pid === null ? 'idle' : s.pid} [${s.start},${s.end})`;
+}
+
+function summarize(problems) {
+  if (problems.length <= 3) return problems.join('; ');
+  return `${problems.slice(0, 3).join('; ')} (+${problems.length - 3} more)`;
+}
+
+/** Returns [{ name, pass, detail }], one entry per invariant, in a fixed order. */
+function verifySchedule(processes, result) {
+  const { segments, metrics } = result;
+  const byPid = new Map(processes.map((p) => [p.id, { p, segs: [] }]));
+  const unknown = [];
+  for (const s of segments) {
+    if (s.pid === null) continue;
+    const entry = byPid.get(s.pid);
+    if (entry) entry.segs.push(s);
+    else unknown.push(s);
+  }
+  const entries = [...byPid.values()];
+  const completionOf = (segs) => Math.max(...segs.map((s) => s.end));
+  const checks = [];
+  const add = (name, problems) => checks.push({ name, pass: problems.length === 0, detail: summarize(problems) });
+
+  // 1. Exact CPU burst.
+  const burst = unknown.map((s) => `segment ${segLabel(s)} belongs to no input process`);
+  for (const { p, segs } of entries) {
+    const got = segs.reduce((n, s) => n + (s.end - s.start), 0);
+    if (got !== p.burst) burst.push(`${p.id} received ${got} of ${p.burst} units`);
+  }
+  add('Every process receives exactly its CPU burst', burst);
+
+  // 2. Never before arrival.
+  const early = [];
+  for (const { p, segs } of entries) {
+    for (const s of segs) if (s.start < p.arrival) early.push(`${p.id} runs at t=${s.start}, before its arrival at t=${p.arrival}`);
+  }
+  add('No process runs before its arrival', early);
+
+  // 3. One CPU: positive-length segments, in time order, contiguous from t=0, no overlap.
+  const overlap = [];
+  segments.forEach((s, i) => {
+    if (!(s.end > s.start)) overlap.push(`segment ${segLabel(s)} has no positive length`);
+    if (i === 0) {
+      if (s.start !== 0) overlap.push(`the timeline starts at t=${s.start}, not t=0`);
+      return;
+    }
+    const prev = segments[i - 1];
+    if (s.start < prev.end) overlap.push(`${segLabel(prev)} overlaps ${segLabel(s)}`);
+    else if (s.start > prev.end) overlap.push(`gap [${prev.end},${s.start}) is neither a process nor idle`);
+  });
+  add('Processes do not overlap on the single CPU', overlap);
+
+  // 4. Nonnegative waiting/response, recomputed from the Gantt and compared with the reported metrics.
+  const negative = [];
+  const reported = new Map(metrics.map((m) => [m.pid, m]));
+  for (const { p, segs } of entries) {
+    if (segs.length === 0) {
+      negative.push(`${p.id} never runs`);
+      continue;
+    }
+    const firstStart = Math.min(...segs.map((s) => s.start));
+    const completion = completionOf(segs);
+    const waiting = completion - p.arrival - p.burst;
+    const response = firstStart - p.arrival;
+    if (waiting < 0) negative.push(`${p.id} has waiting time ${waiting}`);
+    if (response < 0) negative.push(`${p.id} has response time ${response}`);
+    const m = reported.get(p.id);
+    if (!m || m.firstStart !== firstStart || m.completion !== completion || m.waiting !== waiting || m.response !== response) {
+      negative.push(`${p.id}: the results table does not match the Gantt chart`);
+    }
+  }
+  add('Waiting and response times are nonnegative', negative);
+
+  // 5. Work-conserving: an idle interval may not overlap [arrival, completion) of any process.
+  const idleWhileReady = [];
+  for (const s of segments) {
+    if (s.pid !== null) continue;
+    for (const { p, segs } of entries) {
+      if (segs.length === 0) continue;
+      const from = Math.max(s.start, p.arrival);
+      if (from < Math.min(s.end, completionOf(segs))) idleWhileReady.push(`CPU idle at t=${from} while ${p.id} is ready`);
+    }
+  }
+  add('The CPU is never idle while a process is ready', idleWhileReady);
+
+  return checks;
+}
+
+
+// ---- src/workloads.js ----
+// Preset workloads: the assignment's A and B (§4) and our own tests T1–T7 (PLAN.md §9).
+// For T1–T7, `algorithm`/`quantum` name the case the test is about.
+
+const WORKLOADS = {
+  A: {
+    title: 'Workload A (assignment)', algorithm: null, quantum: 2,
+    checks: 'Required workload A.',
+    processes: [{ id: 'P1', arrival: 0, burst: 8 }, { id: 'P2', arrival: 1, burst: 4 }, { id: 'P3', arrival: 2, burst: 2 }, { id: 'P4', arrival: 4, burst: 1 }],
+  },
+  B: {
+    title: 'Workload B (assignment)', algorithm: null, quantum: 2,
+    checks: 'Required workload B.',
+    processes: [{ id: 'P1', arrival: 2, burst: 3 }, { id: 'P2', arrival: 2, burst: 1 }, { id: 'P3', arrival: 8, burst: 2 }, { id: 'P4', arrival: 9, burst: 1 }],
+  },
+  T1: {
+    title: 'T1: idle time', algorithm: 'FCFS', quantum: 2,
+    checks: 'CPU idle at the start and in the middle.',
+    processes: [{ id: 'P1', arrival: 3, burst: 2 }, { id: 'P2', arrival: 10, burst: 1 }],
+  },
+  T2: {
+    title: 'T2: simultaneous arrivals + tie', algorithm: 'SJF', quantum: 2,
+    checks: 'Simultaneous arrivals; equal bursts are broken by input order.',
+    processes: [{ id: 'P1', arrival: 0, burst: 3 }, { id: 'P2', arrival: 0, burst: 3 }, { id: 'P3', arrival: 0, burst: 1 }],
+  },
+  T3: {
+    title: 'T3: SRTF preemption', algorithm: 'SRTF', quantum: 2,
+    checks: 'A strictly shorter arrival preempts the running process.',
+    processes: [{ id: 'P1', arrival: 0, burst: 6 }, { id: 'P2', arrival: 2, burst: 2 }],
+  },
+  T4: {
+    title: 'T4: RR quantum-boundary arrival', algorithm: 'RR', quantum: 2,
+    checks: 'An arrival exactly at a quantum boundary is enqueued before the preempted process.',
+    processes: [{ id: 'P1', arrival: 0, burst: 3 }, { id: 'P2', arrival: 2, burst: 2 }],
+  },
+  T5: {
+    title: 'T5: SRTF equal remaining', algorithm: 'SRTF', quantum: 2,
+    checks: 'Equal remaining time does not preempt.',
+    processes: [{ id: 'P1', arrival: 0, burst: 3 }, { id: 'P2', arrival: 2, burst: 1 }],
+  },
+  T6: {
+    title: 'T6: RR finishes mid-quantum', algorithm: 'RR', quantum: 2,
+    checks: 'A process finishing mid-quantum releases the CPU and never re-enters the queue.',
+    processes: [{ id: 'P1', arrival: 0, burst: 1 }, { id: 'P2', arrival: 0, burst: 2 }],
+  },
+  T7: {
+    title: 'T7: RR consecutive slices', algorithm: 'RR', quantum: 2,
+    checks: 'Consecutive slices of the same process stay separate and visible.',
+    processes: [{ id: 'P1', arrival: 0, burst: 5 }],
+  },
+};
+
+
+// ---- src/ui.js ----
+// Browser UI (PLAN.md §7, §8). Builds DOM nodes and sets text only; it never parses HTML strings.
+
+const ALGORITHM_NAMES = {
+  FCFS: 'FCFS: First-Come, First-Served',
+  SJF: 'SJF: Shortest Job First (non-preemptive)',
+  SRTF: 'SRTF: Shortest Remaining Time First (preemptive)',
+  RR: 'RR: Round Robin',
+};
+const READY_LABELS = {
+  FCFS: 'Ready set, in selection order (arrival, then input row)',
+  SJF: 'Ready set, in selection order (burst, then arrival, then input row)',
+  SRTF: 'Ready set, in selection order (remaining, then arrival, then input row)',
+  RR: 'Ready queue (FIFO, head on the left)',
+};
+const AVERAGE_KEYS = ['turnaround', 'waiting', 'response'];
+const view = { rows: [], run: null, step: 0, timer: null };
+
+const byId = (id) => document.getElementById(id);
+
+// Tiny DOM builder. Strings become text nodes, so user-typed IDs can never inject markup.
+function h(tag, props, ...children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (k === 'class') node.className = v;
+    else if (k === 'style') Object.assign(node.style, v);
+    else if (k.startsWith('on')) node.addEventListener(k.slice(2), v);
+    else if (k in node) node[k] = v;
+    else node.setAttribute(k, v);
+  }
+  for (const c of children.flat()) {
+    if (c !== null && c !== undefined && c !== false) node.append(c instanceof Node ? c : String(c));
+  }
+  return node;
+}
+
+function processColor(index) {
+  return `hsl(${Math.round((index * 137.508) % 360)}, 70%, 80%)`;
+}
+
+// ---- Process editor ----
+
+function renderEditor() {
+  const body = byId('proc-table').tBodies[0];
+  body.replaceChildren(...view.rows.map((r, i) => h('tr', {},
+    h('td', {}, i + 1),
+    h('td', {}, cellInput(r, 'id', `Row ${i + 1} process ID`)),
+    h('td', {}, cellInput(r, 'arrival', `Row ${i + 1} arrival time`)),
+    h('td', {}, cellInput(r, 'burst', `Row ${i + 1} CPU burst`)),
+    h('td', {}, h('button', { type: 'button', class: 'del', title: `Remove row ${i + 1}`, onclick: () => removeRow(i) }, '✕')),
+  )));
+  if (view.rows.length === 0) {
+    body.append(h('tr', {}, h('td', { colSpan: 5, class: 'empty' }, 'No processes. Add one or load a workload.')));
+  }
+  byId('btn-add').disabled = view.rows.length >= MAX_PROCESSES;
+}
+
+function cellInput(row, field, label) {
+  return h('input', {
+    value: String(row[field]), class: field, 'aria-label': label,
+    inputMode: field === 'id' ? 'text' : 'numeric',
+    oninput: (e) => { row[field] = e.target.value; markStale(); },
+  });
+}
+
+function nextFreeId() {
+  const used = new Set(view.rows.map((r) => String(r.id).trim().toLowerCase()));
+  let k = 1;
+  while (used.has(`p${k}`)) k++;
+  return `P${k}`;
+}
+
+function addRow() {
+  if (view.rows.length >= MAX_PROCESSES) return;
+  view.rows.push({ id: nextFreeId(), arrival: '0', burst: '1' });
+  renderEditor();
+  markStale();
+  const inputs = byId('proc-table').tBodies[0].querySelectorAll('input.id');
+  inputs[inputs.length - 1].focus();
+}
+
+function removeRow(i) {
+  view.rows.splice(i, 1);
+  renderEditor();
+  markStale();
+}
+
+function loadWorkload(key) {
+  const w = WORKLOADS[key];
+  view.rows = w.processes.map((p) => ({ id: p.id, arrival: String(p.arrival), burst: String(p.burst) }));
+  if (w.algorithm) byId('sel-algo').value = w.algorithm;
+  byId('inp-quantum').value = String(w.quantum);
+  syncQuantum();
+  renderEditor();
+  markStale();
+  const note = byId('preset-note');
+  note.textContent = `Loaded ${w.title}. ${w.checks}${w.algorithm ? ` Suggested algorithm: ${w.algorithm}.` : ''}`;
+  note.hidden = false;
+}
+
+function syncQuantum() {
+  byId('inp-quantum').disabled = byId('sel-algo').value !== 'RR';
+}
+
+// Results no longer match the inputs: say so instead of silently showing old output.
+function markStale() {
+  stopPlayback();
+  byId('preset-note').hidden = true;
+  byId('compare').hidden = true;
+  for (const n of document.querySelectorAll('.stale-note')) n.hidden = byId('results').hidden;
+}
+
+function showErrors(errors) {
+  const box = byId('errors');
+  box.replaceChildren();
+  box.hidden = errors.length === 0;
+  if (errors.length > 0) {
+    box.append(h('strong', {}, 'Please fix the following before running:'), h('ul', {}, errors.map((e) => h('li', {}, e))));
+  }
+}
+
+// ---- Running ----
+
+function readInput(algorithm) {
+  const quantumText = byId('inp-quantum').value;
+  const errors = validateInput(view.rows, algorithm, quantumText);
+  if (errors.length > 0) return { errors };
+  return { errors, processes: toProcesses(view.rows), quantum: Number(String(quantumText).trim()) };
+}
+
+function run() {
+  stopPlayback();
+  const algorithm = byId('sel-algo').value;
+  const { errors, processes, quantum } = readInput(algorithm);
+  showErrors(errors);
+  if (errors.length > 0) {
+    for (const id of ['results', 'stepper', 'compare']) byId(id).hidden = true;
+    view.run = null;
+    return;
+  }
+  const q = algorithm === 'RR' ? quantum : null;
+  let result;
+  try {
+    result = simulate(processes, algorithm, q);
+  } catch (err) {
+    showErrors([err.message]);
+    return;
+  }
+  view.run = { processes, algorithm, quantum: q, result, checks: verifySchedule(processes, result) };
+  byId('results').hidden = false;
+  byId('stepper').hidden = false;
+  for (const n of document.querySelectorAll('.stale-note')) n.hidden = true;
+  renderResults();
+  view.step = 0;
+  renderStep();
+}
+
+function renderResults() {
+  const { processes, algorithm, quantum, result, checks } = view.run;
+  byId('results-title').textContent = algorithm === 'RR' ? `${ALGORITHM_NAMES.RR}, quantum = ${quantum}` : ALGORITHM_NAMES[algorithm];
+  renderGantt(byId('gantt'), result.segments, processes, Infinity, algorithm === 'RR');
+  renderMetrics(byId('metrics-table'), result);
+  byId('verify-list').replaceChildren(...checks.map((c) => h('li', { class: c.pass ? 'pass' : 'fail' },
+    c.pass ? '✅ ' : '❌ ', c.name, c.pass ? null : h('div', { class: 'detail' }, c.detail))));
+}
+
+// upTo = Infinity draws the whole chart; a finite t reveals only [0, t) (stepper).
+function renderGantt(container, segments, processes, upTo, showSlices) {
+  const colorOf = new Map(processes.map((p, i) => [p.id, processColor(i)]));
+  const end = segments.length > 0 ? segments[segments.length - 1].end : 0;
+  const unit = Math.max(24, Math.min(60, Math.floor(880 / Math.max(end, 1))));
+  const chart = h('div', { class: 'gantt', style: { width: `${end * unit + 2}px` } });
+  const ticks = new Set([0]);
+  for (const s of segments) {
+    if (s.start >= upTo) break;
+    const shownEnd = Math.min(s.end, upTo);
+    ticks.add(s.start);
+    ticks.add(shownEnd);
+    const idle = s.pid === null;
+    const name = idle ? 'idle' : s.pid;
+    const slice = showSlices && !idle ? `, slice #${s.sliceIndex + 1}` : '';
+    const block = h('div', {
+      class: `gantt-block${idle ? ' idle' : ''}${shownEnd < s.end ? ' partial' : ''}`,
+      title: `${name}: [${s.start}, ${s.end}), ${s.end - s.start} unit(s)${slice}`,
+      style: { left: `${s.start * unit}px`, width: `${(shownEnd - s.start) * unit}px` },
+    }, h('span', {}, name), slice ? h('small', {}, `#${s.sliceIndex + 1}`) : null);
+    if (!idle) block.style.setProperty('--c', colorOf.get(s.pid));
+    chart.append(block);
+  }
+  for (const x of [...ticks].sort((a, b) => a - b)) {
+    chart.append(h('div', { class: 'tick', style: { left: `${x * unit}px` } }, h('span', {}, x)));
+  }
+  if (Number.isFinite(upTo)) {
+    chart.append(h('div', { class: 'gantt-cursor', title: `t = ${upTo}`, style: { left: `${Math.min(upTo, end) * unit}px` } }));
+  }
+  container.replaceChildren(chart);
+}
+
+function renderMetrics(table, result) {
+  const cols = [['pid', 'Process'], ['arrival', 'Arrival'], ['burst', 'CPU burst'], ['firstStart', 'First start'],
+    ['completion', 'Completion'], ['turnaround', 'Turnaround'], ['waiting', 'Waiting'], ['response', 'Response']];
+  table.replaceChildren(
+    h('thead', {}, h('tr', {}, cols.map(([, label]) => h('th', {}, label)))),
+    h('tbody', {}, result.metrics.map((m) => h('tr', {}, cols.map(([k]) => h('td', {}, m[k]))))),
+    h('tfoot', {}, h('tr', {}, h('th', { colSpan: 5 }, 'Average'), AVERAGE_KEYS.map((k) => h('td', {}, formatAverage(result.averages[k]))))),
+  );
+}
+
+function compareAll() {
+  stopPlayback();
+  const { errors, processes, quantum } = readInput('RR');
+  showErrors(errors);
+  byId('compare').hidden = errors.length > 0;
+  if (errors.length > 0) return;
+  const rows = ALGORITHMS.map((a) => {
+    const result = simulate(processes, a, a === 'RR' ? quantum : null);
+    return { a, result, ok: verifySchedule(processes, result).every((c) => c.pass) };
+  });
+  // Every average has the same denominator (process count), so numerators compare directly.
+  const best = Object.fromEntries(AVERAGE_KEYS.map((k) => [k, Math.min(...rows.map((r) => r.result.averages[k].num))]));
+  byId('compare-table').replaceChildren(
+    h('thead', {}, h('tr', {}, ['Algorithm', 'Avg turnaround', 'Avg waiting', 'Avg response', 'Invariants'].map((t) => h('th', {}, t)))),
+    h('tbody', {}, rows.map(({ a, result, ok }) => h('tr', {},
+      h('td', {}, a === 'RR' ? `RR (q = ${quantum})` : a),
+      AVERAGE_KEYS.map((k) => h('td', { class: result.averages[k].num === best[k] ? 'best' : '' }, formatAverage(result.averages[k]))),
+      h('td', {}, ok ? '✅ all pass' : '❌ failed')))),
+  );
+  byId('compare').scrollIntoView({ block: 'nearest' });
+}
+
+// ---- Stepper ----
+
+function statusesAt(events, k, processes) {
+  const arrived = new Set();
+  const done = new Set();
+  for (let i = 0; i <= k; i++) {
+    if (events[i].type === 'arrive') arrived.add(events[i].pid);
+    if (events[i].type === 'complete') done.add(events[i].pid);
+  }
+  const e = events[k];
+  const inReady = new Map(e.ready.map((x) => [x.pid, x.remaining]));
+  return processes.map((p) => {
+    if (done.has(p.id)) return { p, status: 'done', remaining: 0 };
+    if (e.running && e.running.pid === p.id) return { p, status: 'running', remaining: e.running.remaining };
+    if (inReady.has(p.id)) return { p, status: 'ready', remaining: inReady.get(p.id) };
+    // Same-instant arrivals are separate steps; don't call a process "not arrived" at its own arrival time.
+    const status = arrived.has(p.id) ? 'waiting' : p.arrival === e.t ? 'arriving now' : 'not arrived';
+    return { p, status, remaining: p.burst };
+  });
+}
+
+function renderStep() {
+  const { processes, algorithm, result } = view.run;
+  const events = result.events;
+  const k = view.step;
+  const e = events[k];
+  const last = events.length - 1;
+  const indexOf = new Map(processes.map((p, i) => [p.id, i]));
+
+  byId('st-counter').textContent = `Step ${k + 1} / ${events.length}`;
+  byId('st-time').textContent = `t = ${e.t}`;
+  byId('st-running').textContent = e.running ? `${e.running.pid} (remaining ${e.running.remaining})` : 'none';
+  byId('st-ready-label').textContent = READY_LABELS[algorithm];
+  const chips = e.ready.map((x) => {
+    const p = processes[indexOf.get(x.pid)];
+    const key = algorithm === 'FCFS' ? `arrival ${p.arrival}` : algorithm === 'SJF' ? `burst ${p.burst}` : `remaining ${x.remaining}`;
+    const chip = h('span', { class: 'chip' }, `${x.pid} (${key})`);
+    chip.style.setProperty('--c', processColor(indexOf.get(x.pid)));
+    return chip;
+  });
+  byId('st-ready').replaceChildren(...(chips.length > 0 ? chips : [h('span', { class: 'muted' }, 'empty')]));
+  byId('st-message').replaceChildren(h('span', { class: 'badge' }, e.type), e.detail);
+  renderGantt(byId('st-gantt'), result.segments, processes, e.t, algorithm === 'RR');
+  byId('st-remaining').replaceChildren(
+    h('thead', {}, h('tr', {}, ['Process', 'Arrival', 'CPU burst', 'Remaining', 'Status'].map((t) => h('th', {}, t)))),
+    h('tbody', {}, statusesAt(events, k, processes).map(({ p, status, remaining }) => h('tr', { class: `st-${status.replace(' ', '-')}` },
+      h('td', {}, p.id), h('td', {}, p.arrival), h('td', {}, p.burst), h('td', {}, remaining), h('td', {}, status)))),
+  );
+
+  byId('st-reset').disabled = k === 0;
+  byId('st-prev').disabled = k === 0;
+  byId('st-next').disabled = k === last;
+  byId('st-finish').disabled = k === last;
+  byId('st-play').textContent = view.timer ? '⏸ Pause' : '▶ Play';
+}
+
+function goTo(k) {
+  if (!view.run) return;
+  stopPlayback();
+  view.step = Math.max(0, Math.min(k, view.run.result.events.length - 1));
+  renderStep();
+}
+
+function stopPlayback() {
+  if (view.timer) clearInterval(view.timer);
+  view.timer = null;
+  const play = byId('st-play');
+  if (play) play.textContent = '▶ Play';
+}
+
+function togglePlayback() {
+  if (!view.run) return;
+  if (view.timer) {
+    stopPlayback();
+    return;
+  }
+  const last = view.run.result.events.length - 1;
+  if (view.step >= last) view.step = 0;
+  view.timer = setInterval(() => {
+    if (view.step >= last) stopPlayback();
+    else view.step++;
+    renderStep();
+  }, Number(byId('st-speed').value));
+  renderStep();
+}
+
+// ---- Setup ----
+
+// Demo/test links, e.g. index.html#load=T3&algo=SRTF&run=1&step=4 or #p=P1:0:3,P2:1:2&algo=RR&q=1&run=1
+function applyHash() {
+  const params = new URLSearchParams(location.hash.slice(1));
+  if (WORKLOADS[params.get('load')]) loadWorkload(params.get('load'));
+  if (params.has('p')) {
+    view.rows = params.get('p').split(',').filter((s) => s !== '').map((s) => {
+      const [id = '', arrival = '', burst = ''] = s.split(':');
+      return { id, arrival, burst };
+    });
+    renderEditor();
+  }
+  if (ALGORITHMS.includes(params.get('algo'))) byId('sel-algo').value = params.get('algo');
+  if (params.has('q')) byId('inp-quantum').value = params.get('q');
+  syncQuantum();
+  if (params.has('run')) {
+    run();
+    if (params.has('step')) goTo(Number(params.get('step')) - 1);
+  }
+  if (params.has('compare')) compareAll();
+}
+
+function initUi() {
+  const algoSelect = byId('sel-algo');
+  for (const a of ALGORITHMS) algoSelect.append(h('option', { value: a }, ALGORITHM_NAMES[a]));
+  const testSelect = byId('sel-test');
+  for (const [key, w] of Object.entries(WORKLOADS)) {
+    if (key.startsWith('T')) testSelect.append(h('option', { value: key }, w.title));
+  }
+
+  byId('btn-load-a').addEventListener('click', () => loadWorkload('A'));
+  byId('btn-load-b').addEventListener('click', () => loadWorkload('B'));
+  testSelect.addEventListener('change', () => {
+    if (testSelect.value) loadWorkload(testSelect.value);
+    testSelect.value = '';
+  });
+  byId('btn-clear').addEventListener('click', () => {
+    view.rows = [];
+    renderEditor();
+    markStale();
+  });
+  byId('btn-add').addEventListener('click', addRow);
+  algoSelect.addEventListener('change', () => { syncQuantum(); markStale(); });
+  byId('inp-quantum').addEventListener('input', markStale);
+  byId('btn-run').addEventListener('click', run);
+  byId('btn-compare').addEventListener('click', compareAll);
+
+  byId('st-reset').addEventListener('click', () => goTo(0));
+  byId('st-prev').addEventListener('click', () => goTo(view.step - 1));
+  byId('st-next').addEventListener('click', () => goTo(view.step + 1));
+  byId('st-finish').addEventListener('click', () => goTo(Infinity));
+  byId('st-play').addEventListener('click', togglePlayback);
+  byId('st-speed').addEventListener('change', () => {
+    if (view.timer) { stopPlayback(); togglePlayback(); }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (!view.run || byId('stepper').hidden || e.target.closest('input, select, textarea')) return;
+    if (e.key === 'ArrowRight') goTo(view.step + 1);
+    if (e.key === 'ArrowLeft') goTo(view.step - 1);
+  });
+
+  loadWorkload('A');
+  byId('preset-note').hidden = true;
+  applyHash();
+}
+
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initUi);
+  else initUi();
+}
+
+
+if (typeof window !== 'undefined') window.CPUScheduler = { ALGORITHMS, simulate, validateInput, toProcesses, verifySchedule, WORKLOADS, formatAverage };
+})();
+</script>
+</body>
+</html>

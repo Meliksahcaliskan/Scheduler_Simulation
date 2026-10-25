@@ -131,6 +131,36 @@ How it was found: As listed.
 Fix / resolution: Melik approved moving on to Phase 3 after the re-check.
 Commit: Phase 2 re-check commit
 
+### [11:58] Phase 3, DECISION
+What happened: Build and UI design choices.
+How it was found: Design.
+Fix / resolution:
+- `scripts/build.mjs` enforces the §6 module rules line by line and fails with file:line on anything else: non-single-line imports, dynamic import, `import.meta`, default/re-exports, `export let`, top-level destructuring, duplicate top-level names across modules, importing a name the source module does not export, wrong module order, and `</script` inside the code. It exposes `window.CPUScheduler` (engine API) for console demos and for `build.test.js`, which runs the built script in `node:vm` and compares it with the ES modules on T1–T7.
+- `build.test.js` also fails if the committed `index.html` is stale (≠ a fresh build), so the artifact the instructor opens always matches `src/`.
+- URL-hash parameters (`#load=T3&algo=SRTF&q=2&run=1&step=4`, `#p=P1:0:3,P2:1:2`, `&compare=1`): demo links for the presentation, and they let me check the real page with headless Chrome screenshots over `file://` (only T1–T7 and error cases, no A/B).
+- RR slice numbers are shown 1-based to humans (`#1`, `#2`, …, also in the event text). `sliceIndex` stays 0-based in data.
+- Added `format.js` + `format.test.js`: rounding done with integer math (half up), for example `1/8 → 0.13`.
+- Implemented the optional "Compare all" table (cheap: same engine, 4 runs).
+Commit: Phase 3 commit
+
+### [12:00] Phase 3, TEST-FAIL
+What happened: The new static check "ui.js never writes HTML strings" failed on its first run. The match was the header comment of ui.js ("…it never uses innerHTML").
+How it was found: `build.test.js`.
+Fix / resolution: Reworded the comment instead of loosening the check (a weaker regex could let a real use slip through).
+Commit: Phase 3 commit
+
+### [12:01] Phase 3, BUG
+What happened: Two UI bugs, visible only in rendered screenshots. (1) The "0" tick label on every Gantt chart was clipped at the left edge (centered label at x=0). (2) In the stepper at T2 step 1 (t=0, "P1 arrives"), P2 and P3 showed "not arrived" although they also arrive at t=0. Same-instant arrivals are separate events, so at that step their arrive events had not been replayed yet.
+How it was found: Headless Chrome screenshots of `#load=T4…` and `#load=T2&compare=1`.
+Fix / resolution: (1) Side margin on `.gantt`. (2) A process whose arrival time equals the current t, but whose arrive event comes later, is shown as "arriving now". Verified via `--dump-dom`: `P1: ready | P2: arriving-now | P3: arriving-now`.
+Commit: Phase 3 commit
+
+### [12:03] Phase 3, CHECKPOINT
+What happened: Build + UI + stepper done. `node --test` → 67 passed, 0 failed, 15 skipped (oracle). Page checked in headless Chrome over file:// for T1, T2 (+compare), T3, T4, and an all-errors input.
+How it was found: `node --test`; screenshots.
+Fix / resolution: Waiting for Melik: Safari double-click test on the Mac, and a manual check of Load A/B (I did not run A/B).
+Commit: Phase 3 commit
+
 ### [10:41] Phase 1, CHECKPOINT
 What happened: validate.js + scheduler.js (4 algorithms + events) done. `node --test` → 36 passed, 0 failed, 0 skipped. No Workload A/B was run or shown.
 How it was found: `node --test`.
