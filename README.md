@@ -15,17 +15,19 @@ No installation, server or internet connection is needed.
 `index.html` is a single self-contained file (all JavaScript and CSS inline), so it works from `file://`.
 
 ### Using the simulator
-1. **Processes:** edit the table (ID, arrival time, CPU burst), add or remove rows, or click **Load Workload A / B** or pick a test case **T1–T7**.
-2. **Algorithm:** choose an algorithm. The time quantum is used only by Round Robin (default 2).
-3. **Run simulation:** shows the Gantt chart, the results table with averages, and the verification panel.
-4. **Step-by-step:** Play / Pause, Prev / Next (or the ← / → keys), Reset and Finish. Each step shows the time, the running process, the ready queue and the rule behind the decision.
-5. **Compare all algorithms:** average turnaround, waiting and response time of all four algorithms for the same input.
+On a wide screen the inputs stay on the left and the results on the right.
+1. **Processes:** edit the table (ID, arrival time, CPU burst), add or remove rows (Enter in the last CPU burst adds one), or click **Load Workload A / B** or pick a test case **T1–T7**.
+2. **Algorithm:** click FCFS, SJF, SRTF or RR. The time quantum (− / +) is shown for Round Robin (default 2) and on the Compare tab.
+3. **Auto-run** (on by default) re-runs the simulation after every change. With it off, press **Run simulation** or Ctrl/⌘ + Enter.
+4. **Results** tab: the Gantt chart, the results table with averages, and the verification panel.
+5. **Step-by-step** tab: Play / Pause, Prev / Next (or the ← / → keys), Reset and Finish. Each step shows the time, the running process, the ready queue and the rule behind the decision.
+6. **Compare** tab: average turnaround, waiting and response time of all four algorithms for the same input.
 
-Invalid input is rejected with a list of every problem, tied to its row (e.g. `Row 3: ID "p1" duplicates "P1" in row 1 (IDs are case-insensitive).`).
+Invalid input is rejected with a list of every problem, tied to its row and marked on the field itself (e.g. `Row 3: ID "p1" duplicates "P1" in row 1 (IDs are case-insensitive).`).
 
-**Demo links:** state can be set from the URL hash, for example
-`index.html#load=T3&run=1&step=4`, `index.html#load=A&algo=RR&q=4&run=1`,
-or custom rows `index.html#p=P1:0:5,P2:1:3&algo=SRTF&run=1` (`&compare=1` opens the comparison).
+**Demo links:** state can be set from the URL hash (the page always runs on load), for example
+`index.html#load=T3&step=4` (opens the stepper at step 4), `index.html#load=A&algo=RR&q=4`,
+or custom rows `index.html#p=P1:0:5,P2:1:3&algo=SRTF`. `&tab=results|step|compare` picks the tab (`&compare=1` also opens the comparison; the older `&run=1` is still accepted).
 
 ## Scheduling model and rules
 

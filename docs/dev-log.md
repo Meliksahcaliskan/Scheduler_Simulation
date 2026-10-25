@@ -178,3 +178,21 @@ What happened: validate.js + scheduler.js (4 algorithms + events) done. `node --
 How it was found: `node --test`.
 Fix / resolution: Waiting for Melik's approval to start Phase 2.
 Commit: Phase 1 commit
+
+### [15:08] UI Tier 1, DECISION
+What happened: Melik added `UI-IMPROVEMENTS.md` (3 tiers, stop after each). Tier 1 done: two-column sticky layout, segmented algorithm buttons with ± quantum, auto-run (on by default, 200 ms debounce, Ctrl/⌘+Enter), process color swatches, inline field errors, editor ergonomics, Results / Step-by-step / Compare tabs (`tab=` in the hash). §4.1 (compare quantum), §4.2 (thrown error keeps old results visible), §4.3 (no results on load) and §4.4 (`replace` → `replaceAll`) fixed along the way.
+How it was found: UI-IMPROVEMENTS.md.
+Fix / resolution: For inline errors, added `validateFields()` to validate.js (same checks, each error tied to row + field). `validateInput()` is now `validateFields(...).map(e => e.message)`, so its output is unchanged: the 13 existing validation tests still pass, plus 1 new test for the field mapping. Process colors went from `hsl(h,70%,80%)` to `hsl(h,80%,72%)`; the lowest contrast with black text over the first 30 hues is 6.26:1 (hue 243), above 4.5:1. Note: per §1.3 the page now runs Workload A on load, so opening the site shows A's results. I still did not look at A/B output (my checks used T-cases only).
+Commit: UI Tier 1 commit
+
+### [15:08] UI Tier 1, BUG
+What happened: In the Compare tab, each average cell showed "[object HTMLTableCellElement],[object HTMLTableCellElement]".
+How it was found: Headless Chrome screenshot of `#load=T4&compare=1`.
+Fix / resolution: `h()` flattened children only one level, and the compare row passed an array nested in an array. Changed to `children.flat(Infinity)`. Re-screenshot shows the numbers.
+Commit: UI Tier 1 commit
+
+### [15:08] UI Tier 1, CHECKPOINT
+What happened: `node --test` → 68 passed, 0 failed, 15 skipped. A scripted headless-Chrome probe over file:// (T3) checked 15 interactions, all PASS: runs on load; quantum hidden except for RR or the Compare tab; algorithm buttons rerun; an invalid edit shows errors, dims the old results and marks the field (aria-invalid + title); clicking an error focuses its field; fixing it clears everything; auto-run off → stale note, Ctrl+Enter runs; Enter in the last burst adds a row and focuses its ID; the tab is written to the hash; ←/→ step; the ± quantum updates the comparison. At 400 px width the page does not scroll sideways (scrollWidth 385).
+How it was found: `node --test`, the probe, screenshots (T7 wide, T3 narrow, an all-errors input, T4 compare).
+Fix / resolution: Safari still not tested (Melik's Mac).
+Commit: UI Tier 1 commit

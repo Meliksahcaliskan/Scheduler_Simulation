@@ -20,11 +20,20 @@ function wholeNumberError(raw, label, min, max) {
 
 /** rows: [{ id, arrival, burst }] with raw (string or number) values from the editor. */
 export function validateInput(rows, algorithm, quantum) {
+  return validateFields(rows, algorithm, quantum).map((e) => e.message);
+}
+
+/**
+ * Same checks and messages as validateInput, each tied to the field it is about so the UI can mark it.
+ * Returns [{ row (1-based, or null), field ('id' | 'arrival' | 'burst' | 'quantum' | null), message }].
+ */
+export function validateFields(rows, algorithm, quantum) {
   const errors = [];
-  if (!VALID_ALGORITHMS.includes(algorithm)) errors.push(`Unknown algorithm "${algorithm}".`);
-  if (rows.length === 0) errors.push('Add at least one process.');
+  const add = (row, field, message) => errors.push({ row, field, message });
+  if (!VALID_ALGORITHMS.includes(algorithm)) add(null, null, `Unknown algorithm "${algorithm}".`);
+  if (rows.length === 0) add(null, null, 'Add at least one process.');
   if (rows.length > MAX_PROCESSES) {
-    errors.push(`Too many processes: ${rows.length} (at most ${MAX_PROCESSES}).`);
+    add(null, null, `Too many processes: ${rows.length} (at most ${MAX_PROCESSES}).`);
   }
 
   const seen = new Map(); // lower-cased ID → { id, row }
@@ -32,27 +41,27 @@ export function validateInput(rows, algorithm, quantum) {
     const row = i + 1;
     const id = asText(r.id);
     if (id === '') {
-      errors.push(`Row ${row}: Process ID is empty.`);
+      add(row, 'id', `Row ${row}: Process ID is empty.`);
     } else if ([...id].length > MAX_ID_LENGTH) {
-      errors.push(`Row ${row}: Process ID "${id}" is longer than ${MAX_ID_LENGTH} characters.`);
+      add(row, 'id', `Row ${row}: Process ID "${id}" is longer than ${MAX_ID_LENGTH} characters.`);
     } else {
       const first = seen.get(id.toLowerCase());
       if (first) {
         const note = first.id === id ? '' : ' (IDs are case-insensitive)';
-        errors.push(`Row ${row}: ID "${id}" duplicates "${first.id}" in row ${first.row}${note}.`);
+        add(row, 'id', `Row ${row}: ID "${id}" duplicates "${first.id}" in row ${first.row}${note}.`);
       } else {
         seen.set(id.toLowerCase(), { id, row });
       }
     }
     const arrivalError = wholeNumberError(r.arrival, 'Arrival time', 0, MAX_ARRIVAL);
-    if (arrivalError) errors.push(`Row ${row}: ${arrivalError}`);
+    if (arrivalError) add(row, 'arrival', `Row ${row}: ${arrivalError}`);
     const burstError = wholeNumberError(r.burst, 'CPU burst', 1, MAX_BURST);
-    if (burstError) errors.push(`Row ${row}: ${burstError}`);
+    if (burstError) add(row, 'burst', `Row ${row}: ${burstError}`);
   });
 
   if (algorithm === 'RR') {
     const quantumError = wholeNumberError(quantum, 'Time quantum', 1, MAX_QUANTUM);
-    if (quantumError) errors.push(quantumError);
+    if (quantumError) add(null, 'quantum', quantumError);
   }
   return errors;
 }

@@ -12,89 +12,116 @@
   <p class="sub">FCFS · SJF (non-preemptive) · SRTF (preemptive) · Round Robin. One CPU, one CPU burst per process, no I/O, zero-cost context switches.
     This simulator models scheduling policies; it does not reproduce Ubuntu's actual scheduler.</p>
 </header>
-<main>
-  <section class="card" id="input-section">
-    <h2>1. Processes</h2>
-    <div class="toolbar">
-      <button type="button" id="btn-load-a">Load Workload A</button>
-      <button type="button" id="btn-load-b">Load Workload B</button>
-      <label>Test case
-        <select id="sel-test"><option value="">Choose…</option></select>
-      </label>
-      <button type="button" id="btn-clear">Clear all</button>
-    </div>
-    <p id="preset-note" class="note" hidden></p>
-    <div class="table-wrap">
-      <table id="proc-table">
-        <thead><tr><th>#</th><th>Process ID</th><th>Arrival time</th><th>CPU burst</th><th></th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-    <button type="button" id="btn-add">+ Add process</button>
-    <p class="note">IDs must be unique (case-insensitive). Arrival times are whole numbers ≥ 0; CPU bursts are whole numbers ≥ 1.
-      Ties are broken by earlier arrival, then by earlier row in this table.</p>
-  </section>
+<main class="layout">
+  <div class="col-input">
+    <section class="card" id="input-section">
+      <h2>1. Processes</h2>
+      <div class="toolbar">
+        <button type="button" id="btn-load-a">Load Workload A</button>
+        <button type="button" id="btn-load-b">Load Workload B</button>
+        <label>Test case
+          <select id="sel-test"><option value="">Choose…</option></select>
+        </label>
+        <button type="button" id="btn-clear">Clear all</button>
+      </div>
+      <p id="preset-note" class="note" hidden></p>
+      <div class="table-wrap">
+        <table id="proc-table">
+          <thead><tr><th>#</th><th>Process ID</th><th>Arrival time</th><th>CPU burst</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="toolbar add-row">
+        <button type="button" id="btn-add">+ Add process</button>
+        <span id="proc-count" class="muted"></span>
+      </div>
+      <p class="note">IDs must be unique (case-insensitive). Arrival times are whole numbers ≥ 0; CPU bursts are whole numbers ≥ 1.
+        Ties are broken by earlier arrival, then by earlier row in this table. Enter in the last CPU burst adds a row.</p>
+    </section>
 
-  <section class="card">
-    <h2>2. Algorithm</h2>
-    <div class="toolbar">
-      <label>Algorithm <select id="sel-algo"></select></label>
-      <label>Time quantum <input id="inp-quantum" value="2" inputmode="numeric" size="4" aria-label="Round-robin time quantum"></label>
-      <button type="button" id="btn-run" class="primary">Run simulation</button>
-      <button type="button" id="btn-compare">Compare all algorithms</button>
-    </div>
-    <div id="errors" class="errors" role="alert" hidden></div>
-  </section>
+    <section class="card" id="algo-section">
+      <h2>2. Algorithm</h2>
+      <div id="algo-seg" class="seg" role="group" aria-label="Algorithm"></div>
+      <div id="quantum-row" class="toolbar quantum-row">
+        <label for="inp-quantum">Time quantum</label>
+        <span class="stepper-input">
+          <button type="button" id="q-dec" aria-label="Decrease time quantum">−</button>
+          <input id="inp-quantum" value="2" inputmode="numeric" autocomplete="off" size="4">
+          <button type="button" id="q-inc" aria-label="Increase time quantum">+</button>
+        </span>
+        <span id="quantum-note" class="muted"></span>
+      </div>
+      <div class="toolbar">
+        <button type="button" id="btn-run" class="primary">Run simulation</button>
+        <label class="check"><input type="checkbox" id="chk-auto" checked> Auto-run on change</label>
+        <span class="muted kbd">Ctrl/⌘ + Enter</span>
+      </div>
+      <div id="errors" class="errors" role="alert" hidden></div>
+    </section>
+  </div>
 
-  <section class="card" id="results" hidden>
-    <h2>3. Results: <span id="results-title"></span></h2>
-    <p class="note warn stale-note" hidden>The inputs changed after this run. Press <b>Run simulation</b> to update.</p>
-    <h3>Gantt chart</h3>
-    <div id="gantt" class="gantt-wrap"></div>
-    <p class="note">Each block is one interval [start, end). Grey hatched blocks are CPU idle time.
-      In round robin, every quantum slice is its own block (#n = slice number of that process), so consecutive slices stay visible.</p>
-    <h3>Per-process metrics</h3>
-    <div class="table-wrap"><table id="metrics-table" class="data"></table></div>
-    <p class="note">Turnaround = Completion − Arrival · Waiting = Turnaround − CPU burst · Response = First start − Arrival.
-      Averages are shown rounded and as exact fractions.</p>
-    <h3>Verification</h3>
-    <ul id="verify-list" class="verify"></ul>
-  </section>
+  <div class="col-output">
+    <section class="card" id="output-empty">
+      <p class="muted">No results yet. Fix the input errors on the left, or load a workload.</p>
+    </section>
+    <div id="output" hidden>
+      <div class="tabs" role="tablist" aria-label="Output">
+        <button type="button" role="tab" class="tab" id="tab-results" data-tab="results" aria-controls="results">Results</button>
+        <button type="button" role="tab" class="tab" id="tab-step" data-tab="step" aria-controls="stepper">Step-by-step</button>
+        <button type="button" role="tab" class="tab" id="tab-compare" data-tab="compare" aria-controls="compare">Compare</button>
+      </div>
+      <p id="stale-note" class="note warn" hidden></p>
 
-  <section class="card" id="stepper" hidden>
-    <h2>4. Step-by-step</h2>
-    <p class="note warn stale-note" hidden>The inputs changed after this run. Press <b>Run simulation</b> to update.</p>
-    <div class="toolbar">
-      <button type="button" id="st-reset">⏮ Reset</button>
-      <button type="button" id="st-prev">◀ Prev</button>
-      <button type="button" id="st-play">▶ Play</button>
-      <button type="button" id="st-next">Next ▶</button>
-      <button type="button" id="st-finish">⏭ Finish</button>
-      <label>Speed
-        <select id="st-speed">
-          <option value="1500">Slow</option>
-          <option value="800" selected>Normal</option>
-          <option value="300">Fast</option>
-        </select>
-      </label>
-      <span id="st-counter" class="counter"></span>
-    </div>
-    <div class="step-grid">
-      <div><div class="lbl">Time</div><div id="st-time" class="big"></div></div>
-      <div><div class="lbl">Running</div><div id="st-running" class="big"></div></div>
-      <div class="grow"><div class="lbl" id="st-ready-label"></div><div id="st-ready" class="chips"></div></div>
-    </div>
-    <p id="st-message" class="message"></p>
-    <div id="st-gantt" class="gantt-wrap"></div>
-    <div class="table-wrap"><table id="st-remaining" class="data"></table></div>
-    <p class="note">Tip: ← / → keys step backward and forward.</p>
-  </section>
+      <section class="card tab-panel" id="results" role="tabpanel" aria-labelledby="tab-results">
+        <h2>Results: <span id="results-title"></span></h2>
+        <h3>Gantt chart</h3>
+        <div id="gantt" class="gantt-wrap"></div>
+        <p class="note">Each block is one interval [start, end). Grey hatched blocks are CPU idle time.
+          In round robin, every quantum slice is its own block (#n = slice number of that process), so consecutive slices stay visible.</p>
+        <h3>Per-process metrics</h3>
+        <div class="table-wrap"><table id="metrics-table" class="data"></table></div>
+        <p class="note">Turnaround = Completion − Arrival · Waiting = Turnaround − CPU burst · Response = First start − Arrival.
+          Averages are shown rounded and as exact fractions.</p>
+        <h3>Verification</h3>
+        <ul id="verify-list" class="verify"></ul>
+      </section>
 
-  <section class="card" id="compare" hidden>
-    <h2>Compare all algorithms</h2>
-    <div class="table-wrap"><table id="compare-table" class="data"></table></div>
-    <p class="note">Same input, all four algorithms (RR uses the quantum above). The lowest value in each column is highlighted.</p>
-  </section>
+      <section class="card tab-panel" id="stepper" role="tabpanel" aria-labelledby="tab-step" hidden>
+        <h2>Step-by-step: <span id="st-title"></span></h2>
+        <div class="toolbar">
+          <button type="button" id="st-reset">⏮ Reset</button>
+          <button type="button" id="st-prev">◀ Prev</button>
+          <button type="button" id="st-play">▶ Play</button>
+          <button type="button" id="st-next">Next ▶</button>
+          <button type="button" id="st-finish">⏭ Finish</button>
+          <label>Speed
+            <select id="st-speed">
+              <option value="1500">Slow</option>
+              <option value="800" selected>Normal</option>
+              <option value="300">Fast</option>
+            </select>
+          </label>
+          <span id="st-counter" class="counter"></span>
+        </div>
+        <div class="step-grid">
+          <div><div class="lbl">Time</div><div id="st-time" class="big"></div></div>
+          <div><div class="lbl">Running</div><div id="st-running" class="big"></div></div>
+          <div class="grow"><div class="lbl" id="st-ready-label"></div><div id="st-ready" class="chips"></div></div>
+        </div>
+        <p id="st-message" class="message"></p>
+        <div id="st-gantt" class="gantt-wrap"></div>
+        <div class="table-wrap"><table id="st-remaining" class="data"></table></div>
+        <p class="note">Tip: ← / → keys step backward and forward.</p>
+      </section>
+
+      <section class="card tab-panel" id="compare" role="tabpanel" aria-labelledby="tab-compare" hidden>
+        <h2>Compare all algorithms</h2>
+        <div class="table-wrap"><table id="compare-table" class="data"></table></div>
+        <p class="note">Same input, all four algorithms. RR uses the time quantum in section 2 (shown there while this tab is open).
+          The lowest value in each column is highlighted.</p>
+      </section>
+    </div>
+  </div>
 </main>
 <footer>
   <p>CSE513 Assignment 1. Runs entirely in your browser: no server, no network access.</p>

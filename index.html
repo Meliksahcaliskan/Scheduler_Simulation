@@ -14,7 +14,12 @@ body {
   margin: 0; background: var(--bg); color: var(--ink);
   font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
-header, main, footer { max-width: 1100px; margin: 0 auto; padding: 0 16px; }
+header, main, footer { max-width: 1440px; margin: 0 auto; padding: 0 16px; }
+/* Two columns on wide screens: inputs stay in view (sticky) while results update beside them. */
+@media (min-width: 1000px) {
+  main.layout { display: grid; grid-template-columns: minmax(400px, 460px) minmax(0, 1fr); gap: 16px; align-items: start; }
+  .col-input { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow-y: auto; }
+}
 header h1 { margin: 20px 0 4px; font-size: 1.6rem; }
 .sub { color: var(--muted); margin: 0 0 16px; }
 footer { color: var(--muted); font-size: .85rem; }
@@ -39,13 +44,43 @@ th, td { padding: 4px 10px; border-bottom: 1px solid var(--line); text-align: ri
 th:first-child, td:first-child { text-align: left; }
 thead th { background: #f0f2f6; }
 tfoot th, tfoot td { font-weight: 700; border-top: 2px solid var(--ink); }
-#proc-table input { width: 7.5em; text-align: right; }
-#proc-table input.id { text-align: left; }
+#proc-table th, #proc-table td { padding: 4px 6px; }
+#proc-table input { width: 5em; text-align: right; }
+#proc-table input.id { width: 7em; text-align: left; }
+input.invalid { border-color: var(--bad); background: #fdecea; box-shadow: 0 0 0 1px var(--bad); }
+.add-row { margin: 8px 0 0; }
+.swatch { display: inline-block; width: .8em; height: .8em; margin-right: 6px; border-radius: 3px; vertical-align: -1px;
+  background: var(--c); border: 1px solid rgba(0, 0, 0, .45); }
 #proc-table td.empty { color: var(--muted); font-style: italic; }
 button.del { padding: 2px 8px; color: var(--bad); }
 
 .errors { border: 1px solid var(--bad); background: #fdecea; color: var(--bad); border-radius: 6px; padding: 8px 12px; }
 .errors ul { margin: 4px 0 0 18px; padding: 0; }
+button.link { border: 0; background: none; padding: 0; color: inherit; text-align: left; cursor: pointer;
+  text-decoration: underline dotted; text-underline-offset: 2px; }
+
+/* Algorithm segmented buttons + quantum */
+.seg { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-bottom: 10px; }
+.seg-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 6px 4px;
+  border: 0; border-right: 1px solid var(--line); border-radius: 0; line-height: 1.2; }
+.seg-btn:last-child { border-right: 0; }
+.seg-btn small { font-size: .72rem; color: var(--muted); }
+.seg-btn[aria-pressed="true"] { background: var(--accent); color: #fff; }
+.seg-btn[aria-pressed="true"] small { color: #e3ecff; }
+.stepper-input { display: inline-flex; }
+.stepper-input button { padding: 4px 10px; }
+.stepper-input button:first-child { border-radius: 6px 0 0 6px; }
+.stepper-input button:last-child { border-radius: 0 6px 6px 0; }
+.stepper-input input { width: 3.5em; text-align: center; border-radius: 0; margin: 0 -1px; }
+label.check { display: inline-flex; align-items: center; gap: 5px; }
+.kbd { font-size: .8rem; }
+
+/* Output tabs; stale (last valid) results are dimmed */
+.tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+.tab { border-radius: 999px; padding: 5px 16px; }
+.tab[aria-selected="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+#output.stale .tab-panel { opacity: .5; }
+td.row-error { text-align: left; color: var(--bad); white-space: normal; }
 
 /* Gantt chart */
 .gantt { position: relative; height: 78px; margin: 6px 14px 4px; } /* side margin keeps the first/last tick labels visible */
@@ -95,89 +130,116 @@ td.best { color: var(--good); font-weight: 700; }
   <p class="sub">FCFS · SJF (non-preemptive) · SRTF (preemptive) · Round Robin. One CPU, one CPU burst per process, no I/O, zero-cost context switches.
     This simulator models scheduling policies; it does not reproduce Ubuntu's actual scheduler.</p>
 </header>
-<main>
-  <section class="card" id="input-section">
-    <h2>1. Processes</h2>
-    <div class="toolbar">
-      <button type="button" id="btn-load-a">Load Workload A</button>
-      <button type="button" id="btn-load-b">Load Workload B</button>
-      <label>Test case
-        <select id="sel-test"><option value="">Choose…</option></select>
-      </label>
-      <button type="button" id="btn-clear">Clear all</button>
-    </div>
-    <p id="preset-note" class="note" hidden></p>
-    <div class="table-wrap">
-      <table id="proc-table">
-        <thead><tr><th>#</th><th>Process ID</th><th>Arrival time</th><th>CPU burst</th><th></th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-    <button type="button" id="btn-add">+ Add process</button>
-    <p class="note">IDs must be unique (case-insensitive). Arrival times are whole numbers ≥ 0; CPU bursts are whole numbers ≥ 1.
-      Ties are broken by earlier arrival, then by earlier row in this table.</p>
-  </section>
+<main class="layout">
+  <div class="col-input">
+    <section class="card" id="input-section">
+      <h2>1. Processes</h2>
+      <div class="toolbar">
+        <button type="button" id="btn-load-a">Load Workload A</button>
+        <button type="button" id="btn-load-b">Load Workload B</button>
+        <label>Test case
+          <select id="sel-test"><option value="">Choose…</option></select>
+        </label>
+        <button type="button" id="btn-clear">Clear all</button>
+      </div>
+      <p id="preset-note" class="note" hidden></p>
+      <div class="table-wrap">
+        <table id="proc-table">
+          <thead><tr><th>#</th><th>Process ID</th><th>Arrival time</th><th>CPU burst</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="toolbar add-row">
+        <button type="button" id="btn-add">+ Add process</button>
+        <span id="proc-count" class="muted"></span>
+      </div>
+      <p class="note">IDs must be unique (case-insensitive). Arrival times are whole numbers ≥ 0; CPU bursts are whole numbers ≥ 1.
+        Ties are broken by earlier arrival, then by earlier row in this table. Enter in the last CPU burst adds a row.</p>
+    </section>
 
-  <section class="card">
-    <h2>2. Algorithm</h2>
-    <div class="toolbar">
-      <label>Algorithm <select id="sel-algo"></select></label>
-      <label>Time quantum <input id="inp-quantum" value="2" inputmode="numeric" size="4" aria-label="Round-robin time quantum"></label>
-      <button type="button" id="btn-run" class="primary">Run simulation</button>
-      <button type="button" id="btn-compare">Compare all algorithms</button>
-    </div>
-    <div id="errors" class="errors" role="alert" hidden></div>
-  </section>
+    <section class="card" id="algo-section">
+      <h2>2. Algorithm</h2>
+      <div id="algo-seg" class="seg" role="group" aria-label="Algorithm"></div>
+      <div id="quantum-row" class="toolbar quantum-row">
+        <label for="inp-quantum">Time quantum</label>
+        <span class="stepper-input">
+          <button type="button" id="q-dec" aria-label="Decrease time quantum">−</button>
+          <input id="inp-quantum" value="2" inputmode="numeric" autocomplete="off" size="4">
+          <button type="button" id="q-inc" aria-label="Increase time quantum">+</button>
+        </span>
+        <span id="quantum-note" class="muted"></span>
+      </div>
+      <div class="toolbar">
+        <button type="button" id="btn-run" class="primary">Run simulation</button>
+        <label class="check"><input type="checkbox" id="chk-auto" checked> Auto-run on change</label>
+        <span class="muted kbd">Ctrl/⌘ + Enter</span>
+      </div>
+      <div id="errors" class="errors" role="alert" hidden></div>
+    </section>
+  </div>
 
-  <section class="card" id="results" hidden>
-    <h2>3. Results: <span id="results-title"></span></h2>
-    <p class="note warn stale-note" hidden>The inputs changed after this run. Press <b>Run simulation</b> to update.</p>
-    <h3>Gantt chart</h3>
-    <div id="gantt" class="gantt-wrap"></div>
-    <p class="note">Each block is one interval [start, end). Grey hatched blocks are CPU idle time.
-      In round robin, every quantum slice is its own block (#n = slice number of that process), so consecutive slices stay visible.</p>
-    <h3>Per-process metrics</h3>
-    <div class="table-wrap"><table id="metrics-table" class="data"></table></div>
-    <p class="note">Turnaround = Completion − Arrival · Waiting = Turnaround − CPU burst · Response = First start − Arrival.
-      Averages are shown rounded and as exact fractions.</p>
-    <h3>Verification</h3>
-    <ul id="verify-list" class="verify"></ul>
-  </section>
+  <div class="col-output">
+    <section class="card" id="output-empty">
+      <p class="muted">No results yet. Fix the input errors on the left, or load a workload.</p>
+    </section>
+    <div id="output" hidden>
+      <div class="tabs" role="tablist" aria-label="Output">
+        <button type="button" role="tab" class="tab" id="tab-results" data-tab="results" aria-controls="results">Results</button>
+        <button type="button" role="tab" class="tab" id="tab-step" data-tab="step" aria-controls="stepper">Step-by-step</button>
+        <button type="button" role="tab" class="tab" id="tab-compare" data-tab="compare" aria-controls="compare">Compare</button>
+      </div>
+      <p id="stale-note" class="note warn" hidden></p>
 
-  <section class="card" id="stepper" hidden>
-    <h2>4. Step-by-step</h2>
-    <p class="note warn stale-note" hidden>The inputs changed after this run. Press <b>Run simulation</b> to update.</p>
-    <div class="toolbar">
-      <button type="button" id="st-reset">⏮ Reset</button>
-      <button type="button" id="st-prev">◀ Prev</button>
-      <button type="button" id="st-play">▶ Play</button>
-      <button type="button" id="st-next">Next ▶</button>
-      <button type="button" id="st-finish">⏭ Finish</button>
-      <label>Speed
-        <select id="st-speed">
-          <option value="1500">Slow</option>
-          <option value="800" selected>Normal</option>
-          <option value="300">Fast</option>
-        </select>
-      </label>
-      <span id="st-counter" class="counter"></span>
-    </div>
-    <div class="step-grid">
-      <div><div class="lbl">Time</div><div id="st-time" class="big"></div></div>
-      <div><div class="lbl">Running</div><div id="st-running" class="big"></div></div>
-      <div class="grow"><div class="lbl" id="st-ready-label"></div><div id="st-ready" class="chips"></div></div>
-    </div>
-    <p id="st-message" class="message"></p>
-    <div id="st-gantt" class="gantt-wrap"></div>
-    <div class="table-wrap"><table id="st-remaining" class="data"></table></div>
-    <p class="note">Tip: ← / → keys step backward and forward.</p>
-  </section>
+      <section class="card tab-panel" id="results" role="tabpanel" aria-labelledby="tab-results">
+        <h2>Results: <span id="results-title"></span></h2>
+        <h3>Gantt chart</h3>
+        <div id="gantt" class="gantt-wrap"></div>
+        <p class="note">Each block is one interval [start, end). Grey hatched blocks are CPU idle time.
+          In round robin, every quantum slice is its own block (#n = slice number of that process), so consecutive slices stay visible.</p>
+        <h3>Per-process metrics</h3>
+        <div class="table-wrap"><table id="metrics-table" class="data"></table></div>
+        <p class="note">Turnaround = Completion − Arrival · Waiting = Turnaround − CPU burst · Response = First start − Arrival.
+          Averages are shown rounded and as exact fractions.</p>
+        <h3>Verification</h3>
+        <ul id="verify-list" class="verify"></ul>
+      </section>
 
-  <section class="card" id="compare" hidden>
-    <h2>Compare all algorithms</h2>
-    <div class="table-wrap"><table id="compare-table" class="data"></table></div>
-    <p class="note">Same input, all four algorithms (RR uses the quantum above). The lowest value in each column is highlighted.</p>
-  </section>
+      <section class="card tab-panel" id="stepper" role="tabpanel" aria-labelledby="tab-step" hidden>
+        <h2>Step-by-step: <span id="st-title"></span></h2>
+        <div class="toolbar">
+          <button type="button" id="st-reset">⏮ Reset</button>
+          <button type="button" id="st-prev">◀ Prev</button>
+          <button type="button" id="st-play">▶ Play</button>
+          <button type="button" id="st-next">Next ▶</button>
+          <button type="button" id="st-finish">⏭ Finish</button>
+          <label>Speed
+            <select id="st-speed">
+              <option value="1500">Slow</option>
+              <option value="800" selected>Normal</option>
+              <option value="300">Fast</option>
+            </select>
+          </label>
+          <span id="st-counter" class="counter"></span>
+        </div>
+        <div class="step-grid">
+          <div><div class="lbl">Time</div><div id="st-time" class="big"></div></div>
+          <div><div class="lbl">Running</div><div id="st-running" class="big"></div></div>
+          <div class="grow"><div class="lbl" id="st-ready-label"></div><div id="st-ready" class="chips"></div></div>
+        </div>
+        <p id="st-message" class="message"></p>
+        <div id="st-gantt" class="gantt-wrap"></div>
+        <div class="table-wrap"><table id="st-remaining" class="data"></table></div>
+        <p class="note">Tip: ← / → keys step backward and forward.</p>
+      </section>
+
+      <section class="card tab-panel" id="compare" role="tabpanel" aria-labelledby="tab-compare" hidden>
+        <h2>Compare all algorithms</h2>
+        <div class="table-wrap"><table id="compare-table" class="data"></table></div>
+        <p class="note">Same input, all four algorithms. RR uses the time quantum in section 2 (shown there while this tab is open).
+          The lowest value in each column is highlighted.</p>
+      </section>
+    </div>
+  </div>
 </main>
 <footer>
   <p>CSE513 Assignment 1. Runs entirely in your browser: no server, no network access.</p>
@@ -229,11 +291,20 @@ function wholeNumberError(raw, label, min, max) {
 
 /** rows: [{ id, arrival, burst }] with raw (string or number) values from the editor. */
 function validateInput(rows, algorithm, quantum) {
+  return validateFields(rows, algorithm, quantum).map((e) => e.message);
+}
+
+/**
+ * Same checks and messages as validateInput, each tied to the field it is about so the UI can mark it.
+ * Returns [{ row (1-based, or null), field ('id' | 'arrival' | 'burst' | 'quantum' | null), message }].
+ */
+function validateFields(rows, algorithm, quantum) {
   const errors = [];
-  if (!VALID_ALGORITHMS.includes(algorithm)) errors.push(`Unknown algorithm "${algorithm}".`);
-  if (rows.length === 0) errors.push('Add at least one process.');
+  const add = (row, field, message) => errors.push({ row, field, message });
+  if (!VALID_ALGORITHMS.includes(algorithm)) add(null, null, `Unknown algorithm "${algorithm}".`);
+  if (rows.length === 0) add(null, null, 'Add at least one process.');
   if (rows.length > MAX_PROCESSES) {
-    errors.push(`Too many processes: ${rows.length} (at most ${MAX_PROCESSES}).`);
+    add(null, null, `Too many processes: ${rows.length} (at most ${MAX_PROCESSES}).`);
   }
 
   const seen = new Map(); // lower-cased ID → { id, row }
@@ -241,27 +312,27 @@ function validateInput(rows, algorithm, quantum) {
     const row = i + 1;
     const id = asText(r.id);
     if (id === '') {
-      errors.push(`Row ${row}: Process ID is empty.`);
+      add(row, 'id', `Row ${row}: Process ID is empty.`);
     } else if ([...id].length > MAX_ID_LENGTH) {
-      errors.push(`Row ${row}: Process ID "${id}" is longer than ${MAX_ID_LENGTH} characters.`);
+      add(row, 'id', `Row ${row}: Process ID "${id}" is longer than ${MAX_ID_LENGTH} characters.`);
     } else {
       const first = seen.get(id.toLowerCase());
       if (first) {
         const note = first.id === id ? '' : ' (IDs are case-insensitive)';
-        errors.push(`Row ${row}: ID "${id}" duplicates "${first.id}" in row ${first.row}${note}.`);
+        add(row, 'id', `Row ${row}: ID "${id}" duplicates "${first.id}" in row ${first.row}${note}.`);
       } else {
         seen.set(id.toLowerCase(), { id, row });
       }
     }
     const arrivalError = wholeNumberError(r.arrival, 'Arrival time', 0, MAX_ARRIVAL);
-    if (arrivalError) errors.push(`Row ${row}: ${arrivalError}`);
+    if (arrivalError) add(row, 'arrival', `Row ${row}: ${arrivalError}`);
     const burstError = wholeNumberError(r.burst, 'CPU burst', 1, MAX_BURST);
-    if (burstError) errors.push(`Row ${row}: ${burstError}`);
+    if (burstError) add(row, 'burst', `Row ${row}: ${burstError}`);
   });
 
   if (algorithm === 'RR') {
     const quantumError = wholeNumberError(quantum, 'Time quantum', 1, MAX_QUANTUM);
-    if (quantumError) errors.push(quantumError);
+    if (quantumError) add(null, 'quantum', quantumError);
   }
   return errors;
 }
@@ -635,7 +706,7 @@ const WORKLOADS = {
 
 
 // ---- src/ui.js ----
-// Browser UI (PLAN.md §7, §8). Builds DOM nodes and sets text only; it never parses HTML strings.
+// Browser UI (PLAN.md §7, §8; UI-IMPROVEMENTS.md). Builds DOM nodes and sets text only; it never parses HTML strings.
 
 const ALGORITHM_NAMES = {
   FCFS: 'FCFS: First-Come, First-Served',
@@ -643,6 +714,7 @@ const ALGORITHM_NAMES = {
   SRTF: 'SRTF: Shortest Remaining Time First (preemptive)',
   RR: 'RR: Round Robin',
 };
+const ALGORITHM_SUBTITLES = { FCFS: 'arrival order', SJF: 'non-preemptive', SRTF: 'preemptive', RR: 'quantum' };
 const READY_LABELS = {
   FCFS: 'Ready set, in selection order (arrival, then input row)',
   SJF: 'Ready set, in selection order (burst, then arrival, then input row)',
@@ -650,7 +722,9 @@ const READY_LABELS = {
   RR: 'Ready queue (FIFO, head on the left)',
 };
 const AVERAGE_KEYS = ['turnaround', 'waiting', 'response'];
-const view = { rows: [], run: null, step: 0, timer: null };
+const TABS = { results: 'results', step: 'stepper', compare: 'compare' }; // tab name → panel id
+const AUTO_RUN_DELAY_MS = 200;
+const view = { rows: [], algorithm: 'FCFS', tab: 'results', run: null, compare: null, step: 0, timer: null, autoTimer: null };
 
 const byId = (id) => document.getElementById(id);
 
@@ -664,14 +738,21 @@ function h(tag, props, ...children) {
     else if (k in node) node[k] = v;
     else node.setAttribute(k, v);
   }
-  for (const c of children.flat()) {
+  for (const c of children.flat(Infinity)) {
     if (c !== null && c !== undefined && c !== false) node.append(c instanceof Node ? c : String(c));
   }
   return node;
 }
 
+// Golden-angle hues; lightness 72% keeps black text above 4.5:1 contrast for every hue.
 function processColor(index) {
-  return `hsl(${Math.round((index * 137.508) % 360)}, 70%, 80%)`;
+  return `hsl(${Math.round((index * 137.508) % 360)}, 80%, 72%)`;
+}
+
+function swatch(index) {
+  const s = h('span', { class: 'swatch', 'aria-hidden': 'true' });
+  s.style.setProperty('--c', processColor(index));
+  return s;
 }
 
 // ---- Process editor ----
@@ -679,23 +760,28 @@ function processColor(index) {
 function renderEditor() {
   const body = byId('proc-table').tBodies[0];
   body.replaceChildren(...view.rows.map((r, i) => h('tr', {},
-    h('td', {}, i + 1),
-    h('td', {}, cellInput(r, 'id', `Row ${i + 1} process ID`)),
-    h('td', {}, cellInput(r, 'arrival', `Row ${i + 1} arrival time`)),
-    h('td', {}, cellInput(r, 'burst', `Row ${i + 1} CPU burst`)),
+    h('td', {}, swatch(i), i + 1),
+    h('td', {}, cellInput(r, i, 'id', `Row ${i + 1} process ID`)),
+    h('td', {}, cellInput(r, i, 'arrival', `Row ${i + 1} arrival time`)),
+    h('td', {}, cellInput(r, i, 'burst', `Row ${i + 1} CPU burst`)),
     h('td', {}, h('button', { type: 'button', class: 'del', title: `Remove row ${i + 1}`, onclick: () => removeRow(i) }, '✕')),
   )));
   if (view.rows.length === 0) {
     body.append(h('tr', {}, h('td', { colSpan: 5, class: 'empty' }, 'No processes. Add one or load a workload.')));
   }
   byId('btn-add').disabled = view.rows.length >= MAX_PROCESSES;
+  byId('proc-count').textContent = `${view.rows.length} / ${MAX_PROCESSES}`;
 }
 
-function cellInput(row, field, label) {
+function cellInput(row, index, field, label) {
   return h('input', {
-    value: String(row[field]), class: field, 'aria-label': label,
-    inputMode: field === 'id' ? 'text' : 'numeric',
-    oninput: (e) => { row[field] = e.target.value; markStale(); },
+    value: String(row[field]), class: field, 'aria-label': label, autocomplete: 'off',
+    inputMode: field === 'id' ? 'text' : 'numeric', 'data-row': index + 1, 'data-field': field,
+    oninput: (e) => { row[field] = e.target.value; byId('preset-note').hidden = true; inputsChanged(false); },
+    onkeydown: (e) => {
+      // Enter in the last row's burst adds a row (Ctrl/⌘ + Enter is Run, handled globally).
+      if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && field === 'burst' && index === view.rows.length - 1) addRow();
+    },
   });
 }
 
@@ -709,91 +795,196 @@ function nextFreeId() {
 function addRow() {
   if (view.rows.length >= MAX_PROCESSES) return;
   view.rows.push({ id: nextFreeId(), arrival: '0', burst: '1' });
-  renderEditor();
-  markStale();
+  editorChanged();
   const inputs = byId('proc-table').tBodies[0].querySelectorAll('input.id');
   inputs[inputs.length - 1].focus();
 }
 
 function removeRow(i) {
   view.rows.splice(i, 1);
-  renderEditor();
-  markStale();
+  editorChanged();
 }
 
+function editorChanged() {
+  renderEditor();
+  byId('preset-note').hidden = true;
+  inputsChanged(true);
+}
+
+// Sets the editor, algorithm and quantum from a preset; the caller decides when to run.
 function loadWorkload(key) {
   const w = WORKLOADS[key];
   view.rows = w.processes.map((p) => ({ id: p.id, arrival: String(p.arrival), burst: String(p.burst) }));
-  if (w.algorithm) byId('sel-algo').value = w.algorithm;
+  if (w.algorithm) setAlgorithm(w.algorithm);
   byId('inp-quantum').value = String(w.quantum);
-  syncQuantum();
   renderEditor();
-  markStale();
   const note = byId('preset-note');
   note.textContent = `Loaded ${w.title}. ${w.checks}${w.algorithm ? ` Suggested algorithm: ${w.algorithm}.` : ''}`;
   note.hidden = false;
 }
 
+function setAlgorithm(a) {
+  view.algorithm = a;
+  for (const b of byId('algo-seg').children) b.setAttribute('aria-pressed', String(b.dataset.algo === a));
+  syncQuantum();
+}
+
+// The quantum matters for RR, and for the RR row of the comparison (so it stays editable there).
 function syncQuantum() {
-  byId('inp-quantum').disabled = byId('sel-algo').value !== 'RR';
+  const rr = view.algorithm === 'RR';
+  byId('quantum-row').hidden = !rr && view.tab !== 'compare';
+  byId('quantum-note').textContent = rr ? '' : 'used by the RR row of the comparison';
 }
 
-// Results no longer match the inputs: say so instead of silently showing old output.
-function markStale() {
+function stepQuantum(delta) {
+  const input = byId('inp-quantum');
+  const text = input.value.trim();
+  const q = /^\d+$/.test(text) ? Number(text) + delta : 1;
+  input.value = String(Math.max(1, Math.min(MAX_QUANTUM, q)));
+  inputsChanged(true);
+}
+
+// Every edit lands here. Auto-run re-runs (debounced while typing); otherwise old results are marked stale.
+function inputsChanged(immediate) {
   stopPlayback();
-  byId('preset-note').hidden = true;
-  byId('compare').hidden = true;
-  for (const n of document.querySelectorAll('.stale-note')) n.hidden = byId('results').hidden;
+  clearTimeout(view.autoTimer);
+  if (!byId('chk-auto').checked) {
+    setStale('The inputs changed after this run. Press Run simulation (or Ctrl/⌘ + Enter) to update.');
+  } else if (immediate) {
+    run();
+  } else {
+    view.autoTimer = setTimeout(run, AUTO_RUN_DELAY_MS);
+  }
 }
 
+function setStale(message) {
+  const note = byId('stale-note');
+  note.textContent = message;
+  note.hidden = view.run === null;
+  byId('output').classList.toggle('stale', view.run !== null);
+}
+
+function clearStale() {
+  byId('stale-note').hidden = true;
+  byId('output').classList.remove('stale');
+}
+
+function fieldInput(e) {
+  if (e.field === 'quantum') return byId('inp-quantum');
+  if (e.field === null) return null;
+  return byId('proc-table').querySelector(`input[data-row="${e.row}"][data-field="${e.field}"]`);
+}
+
+function markInvalid(input, message) {
+  input.classList.add('invalid');
+  input.setAttribute('aria-invalid', 'true');
+  input.title = input.title ? `${input.title}\n${message}` : message;
+}
+
+// errors: [{ row, field, message }] from validateFields. The list stays; each field is also marked in place.
 function showErrors(errors) {
+  for (const input of document.querySelectorAll('input.invalid')) {
+    input.classList.remove('invalid');
+    input.removeAttribute('aria-invalid');
+    input.title = '';
+  }
   const box = byId('errors');
   box.replaceChildren();
   box.hidden = errors.length === 0;
-  if (errors.length > 0) {
-    box.append(h('strong', {}, 'Please fix the following before running:'), h('ul', {}, errors.map((e) => h('li', {}, e))));
+  if (errors.length === 0) return;
+  for (const e of errors) {
+    const input = fieldInput(e);
+    if (input) markInvalid(input, e.message);
   }
+  box.append(h('strong', {}, 'Please fix the following before running:'), h('ul', {}, errors.map((e) => {
+    const input = fieldInput(e);
+    return h('li', {}, input
+      ? h('button', { type: 'button', class: 'link', title: 'Go to this field', onclick: () => { input.focus(); input.select(); } }, e.message)
+      : e.message);
+  })));
 }
 
 // ---- Running ----
 
-function readInput(algorithm) {
-  const quantumText = byId('inp-quantum').value;
-  const errors = validateInput(view.rows, algorithm, quantumText);
-  if (errors.length > 0) return { errors };
-  return { errors, processes: toProcesses(view.rows), quantum: Number(String(quantumText).trim()) };
-}
-
 function run() {
+  clearTimeout(view.autoTimer);
   stopPlayback();
-  const algorithm = byId('sel-algo').value;
-  const { errors, processes, quantum } = readInput(algorithm);
+  const algorithm = view.algorithm;
+  const quantumText = byId('inp-quantum').value;
+  const errors = validateFields(view.rows, algorithm, quantumText);
   showErrors(errors);
   if (errors.length > 0) {
-    for (const id of ['results', 'stepper', 'compare']) byId(id).hidden = true;
-    view.run = null;
+    setStale('The input has errors, so this is the last valid run. Fix the errors to update it.');
     return;
   }
-  const q = algorithm === 'RR' ? quantum : null;
+  const processes = toProcesses(view.rows);
+  const q = algorithm === 'RR' ? Number(quantumText.trim()) : null;
   let result;
   try {
     result = simulate(processes, algorithm, q);
   } catch (err) {
-    showErrors([err.message]);
+    showErrors([{ row: null, field: null, message: err.message }]);
+    setStale('The simulator stopped with an error, so this is the last valid run.');
     return;
   }
   view.run = { processes, algorithm, quantum: q, result, checks: verifySchedule(processes, result) };
-  byId('results').hidden = false;
-  byId('stepper').hidden = false;
-  for (const n of document.querySelectorAll('.stale-note')) n.hidden = true;
-  renderResults();
+  view.compare = compareRows(processes, quantumText);
   view.step = 0;
-  renderStep();
+  clearStale();
+  byId('output-empty').hidden = true;
+  byId('output').hidden = false;
+  renderTab();
+}
+
+function compareRows(processes, quantumText) {
+  // Same rule as validation, applied to the quantum alone (the RR row needs it even when RR is not selected).
+  const quantumError = validateFields([], 'RR', quantumText).find((e) => e.field === 'quantum');
+  if (quantumError && view.algorithm !== 'RR') markInvalid(byId('inp-quantum'), quantumError.message);
+  return ALGORITHMS.map((a) => {
+    if (a === 'RR' && quantumError) return { a, error: quantumError.message };
+    const q = a === 'RR' ? Number(quantumText.trim()) : null;
+    try {
+      const result = simulate(processes, a, q);
+      return { a, q, result, ok: verifySchedule(processes, result).every((c) => c.pass) };
+    } catch (err) {
+      return { a, error: err.message };
+    }
+  });
+}
+
+function setTab(tab, updateHash) {
+  if (tab !== 'step') stopPlayback();
+  view.tab = tab;
+  for (const [name, panelId] of Object.entries(TABS)) {
+    byId(`tab-${name}`).setAttribute('aria-selected', String(name === tab));
+    byId(panelId).hidden = name !== tab;
+  }
+  syncQuantum();
+  if (updateHash) {
+    const params = new URLSearchParams(location.hash.slice(1));
+    params.set('tab', tab);
+    // Some browsers refuse URL rewrites on file://; the tab still works, it just isn't kept in the URL.
+    try { history.replaceState(null, '', `#${params}`); } catch { /* ignore */ }
+  }
+  renderTab();
+}
+
+// Only the visible tab is drawn, so the Gantt can size itself to the real width.
+function renderTab() {
+  if (!view.run) return;
+  if (view.tab === 'results') renderResults();
+  else if (view.tab === 'step') renderStep();
+  else renderCompare();
+}
+
+function runTitle() {
+  const { algorithm, quantum } = view.run;
+  return algorithm === 'RR' ? `${ALGORITHM_NAMES.RR}, quantum = ${quantum}` : ALGORITHM_NAMES[algorithm];
 }
 
 function renderResults() {
-  const { processes, algorithm, quantum, result, checks } = view.run;
-  byId('results-title').textContent = algorithm === 'RR' ? `${ALGORITHM_NAMES.RR}, quantum = ${quantum}` : ALGORITHM_NAMES[algorithm];
+  const { processes, algorithm, result, checks } = view.run;
+  byId('results-title').textContent = runTitle();
   renderGantt(byId('gantt'), result.segments, processes, Infinity, algorithm === 'RR');
   renderMetrics(byId('metrics-table'), result);
   byId('verify-list').replaceChildren(...checks.map((c) => h('li', { class: c.pass ? 'pass' : 'fail' },
@@ -804,7 +995,8 @@ function renderResults() {
 function renderGantt(container, segments, processes, upTo, showSlices) {
   const colorOf = new Map(processes.map((p, i) => [p.id, processColor(i)]));
   const end = segments.length > 0 ? segments[segments.length - 1].end : 0;
-  const unit = Math.max(24, Math.min(60, Math.floor(880 / Math.max(end, 1))));
+  const available = Math.max(300, (container.clientWidth || 900) - 32);
+  const unit = Math.max(24, Math.min(60, Math.floor(available / Math.max(end, 1))));
   const chart = h('div', { class: 'gantt', style: { width: `${end * unit + 2}px` } });
   const ticks = new Set([0]);
   for (const s of segments) {
@@ -837,31 +1029,25 @@ function renderMetrics(table, result) {
     ['completion', 'Completion'], ['turnaround', 'Turnaround'], ['waiting', 'Waiting'], ['response', 'Response']];
   table.replaceChildren(
     h('thead', {}, h('tr', {}, cols.map(([, label]) => h('th', {}, label)))),
-    h('tbody', {}, result.metrics.map((m) => h('tr', {}, cols.map(([k]) => h('td', {}, m[k]))))),
+    h('tbody', {}, result.metrics.map((m, i) => h('tr', {}, cols.map(([k]) => h('td', {}, k === 'pid' ? swatch(i) : null, m[k]))))),
     h('tfoot', {}, h('tr', {}, h('th', { colSpan: 5 }, 'Average'), AVERAGE_KEYS.map((k) => h('td', {}, formatAverage(result.averages[k]))))),
   );
 }
 
-function compareAll() {
-  stopPlayback();
-  const { errors, processes, quantum } = readInput('RR');
-  showErrors(errors);
-  byId('compare').hidden = errors.length > 0;
-  if (errors.length > 0) return;
-  const rows = ALGORITHMS.map((a) => {
-    const result = simulate(processes, a, a === 'RR' ? quantum : null);
-    return { a, result, ok: verifySchedule(processes, result).every((c) => c.pass) };
-  });
+function renderCompare() {
+  const rows = view.compare;
+  const valid = rows.filter((r) => r.result);
   // Every average has the same denominator (process count), so numerators compare directly.
-  const best = Object.fromEntries(AVERAGE_KEYS.map((k) => [k, Math.min(...rows.map((r) => r.result.averages[k].num))]));
+  const best = Object.fromEntries(AVERAGE_KEYS.map((k) => [k, Math.min(...valid.map((r) => r.result.averages[k].num))]));
   byId('compare-table').replaceChildren(
     h('thead', {}, h('tr', {}, ['Algorithm', 'Avg turnaround', 'Avg waiting', 'Avg response', 'Invariants'].map((t) => h('th', {}, t)))),
-    h('tbody', {}, rows.map(({ a, result, ok }) => h('tr', {},
-      h('td', {}, a === 'RR' ? `RR (q = ${quantum})` : a),
-      AVERAGE_KEYS.map((k) => h('td', { class: result.averages[k].num === best[k] ? 'best' : '' }, formatAverage(result.averages[k]))),
-      h('td', {}, ok ? '✅ all pass' : '❌ failed')))),
+    h('tbody', {}, rows.map((r) => h('tr', {},
+      h('td', {}, r.a === 'RR' && r.result ? `RR (q = ${r.q})` : r.a),
+      r.result
+        ? [AVERAGE_KEYS.map((k) => h('td', { class: r.result.averages[k].num === best[k] ? 'best' : '' }, formatAverage(r.result.averages[k]))),
+          h('td', {}, r.ok ? '✅ all pass' : '❌ failed')]
+        : h('td', { colSpan: 4, class: 'row-error' }, `Not run: ${r.error}`)))),
   );
-  byId('compare').scrollIntoView({ block: 'nearest' });
 }
 
 // ---- Stepper ----
@@ -893,6 +1079,7 @@ function renderStep() {
   const last = events.length - 1;
   const indexOf = new Map(processes.map((p, i) => [p.id, i]));
 
+  byId('st-title').textContent = runTitle();
   byId('st-counter').textContent = `Step ${k + 1} / ${events.length}`;
   byId('st-time').textContent = `t = ${e.t}`;
   byId('st-running').textContent = e.running ? `${e.running.pid} (remaining ${e.running.remaining})` : 'none';
@@ -909,8 +1096,8 @@ function renderStep() {
   renderGantt(byId('st-gantt'), result.segments, processes, e.t, algorithm === 'RR');
   byId('st-remaining').replaceChildren(
     h('thead', {}, h('tr', {}, ['Process', 'Arrival', 'CPU burst', 'Remaining', 'Status'].map((t) => h('th', {}, t)))),
-    h('tbody', {}, statusesAt(events, k, processes).map(({ p, status, remaining }) => h('tr', { class: `st-${status.replace(' ', '-')}` },
-      h('td', {}, p.id), h('td', {}, p.arrival), h('td', {}, p.burst), h('td', {}, remaining), h('td', {}, status)))),
+    h('tbody', {}, statusesAt(events, k, processes).map(({ p, status, remaining }) => h('tr', { class: `st-${status.replaceAll(' ', '-')}` },
+      h('td', {}, swatch(indexOf.get(p.id)), p.id), h('td', {}, p.arrival), h('td', {}, p.burst), h('td', {}, remaining), h('td', {}, status)))),
   );
 
   byId('st-reset').disabled = k === 0;
@@ -952,7 +1139,8 @@ function togglePlayback() {
 
 // ---- Setup ----
 
-// Demo/test links, e.g. index.html#load=T3&algo=SRTF&run=1&step=4 or #p=P1:0:3,P2:1:2&algo=RR&q=1&run=1
+// Demo/test links, e.g. index.html#load=T3&algo=SRTF&step=4 or #p=P1:0:3,P2:1:2&algo=RR&q=1&tab=compare.
+// The page always runs on load; run=1 is still accepted. step= opens the stepper, compare=1 the comparison.
 function applyHash() {
   const params = new URLSearchParams(location.hash.slice(1));
   if (WORKLOADS[params.get('load')]) loadWorkload(params.get('load'));
@@ -963,40 +1151,47 @@ function applyHash() {
     });
     renderEditor();
   }
-  if (ALGORITHMS.includes(params.get('algo'))) byId('sel-algo').value = params.get('algo');
+  if (ALGORITHMS.includes(params.get('algo'))) setAlgorithm(params.get('algo'));
   if (params.has('q')) byId('inp-quantum').value = params.get('q');
-  syncQuantum();
-  if (params.has('run')) {
-    run();
-    if (params.has('step')) goTo(Number(params.get('step')) - 1);
-  }
-  if (params.has('compare')) compareAll();
+  const fallback = params.has('compare') ? 'compare' : params.has('step') ? 'step' : 'results';
+  const tab = params.get('tab') in TABS ? params.get('tab') : fallback;
+  view.tab = tab;
+  run();
+  setTab(tab, false);
+  if (params.has('step')) goTo(Number(params.get('step')) - 1);
 }
 
 function initUi() {
-  const algoSelect = byId('sel-algo');
-  for (const a of ALGORITHMS) algoSelect.append(h('option', { value: a }, ALGORITHM_NAMES[a]));
+  const seg = byId('algo-seg');
+  for (const a of ALGORITHMS) {
+    seg.append(h('button', {
+      type: 'button', class: 'seg-btn', 'data-algo': a, title: ALGORITHM_NAMES[a], 'aria-pressed': 'false',
+      onclick: () => { setAlgorithm(a); inputsChanged(true); },
+    }, h('b', {}, a), h('small', {}, ALGORITHM_SUBTITLES[a])));
+  }
   const testSelect = byId('sel-test');
   for (const [key, w] of Object.entries(WORKLOADS)) {
     if (key.startsWith('T')) testSelect.append(h('option', { value: key }, w.title));
   }
+  const load = (key) => { loadWorkload(key); inputsChanged(true); };
 
-  byId('btn-load-a').addEventListener('click', () => loadWorkload('A'));
-  byId('btn-load-b').addEventListener('click', () => loadWorkload('B'));
+  byId('btn-load-a').addEventListener('click', () => load('A'));
+  byId('btn-load-b').addEventListener('click', () => load('B'));
   testSelect.addEventListener('change', () => {
-    if (testSelect.value) loadWorkload(testSelect.value);
+    if (testSelect.value) load(testSelect.value);
     testSelect.value = '';
   });
   byId('btn-clear').addEventListener('click', () => {
     view.rows = [];
-    renderEditor();
-    markStale();
+    editorChanged();
   });
   byId('btn-add').addEventListener('click', addRow);
-  algoSelect.addEventListener('change', () => { syncQuantum(); markStale(); });
-  byId('inp-quantum').addEventListener('input', markStale);
+  byId('inp-quantum').addEventListener('input', () => inputsChanged(false));
+  byId('q-dec').addEventListener('click', () => stepQuantum(-1));
+  byId('q-inc').addEventListener('click', () => stepQuantum(1));
+  byId('chk-auto').addEventListener('change', (e) => { if (e.target.checked) run(); });
   byId('btn-run').addEventListener('click', run);
-  byId('btn-compare').addEventListener('click', compareAll);
+  for (const name of Object.keys(TABS)) byId(`tab-${name}`).addEventListener('click', () => setTab(name, true));
 
   byId('st-reset').addEventListener('click', () => goTo(0));
   byId('st-prev').addEventListener('click', () => goTo(view.step - 1));
@@ -1007,13 +1202,24 @@ function initUi() {
     if (view.timer) { stopPlayback(); togglePlayback(); }
   });
   document.addEventListener('keydown', (e) => {
-    if (!view.run || byId('stepper').hidden || e.target.closest('input, select, textarea')) return;
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      run();
+      return;
+    }
+    if (!view.run || view.tab !== 'step' || e.target.closest('input, select, textarea')) return;
     if (e.key === 'ArrowRight') goTo(view.step + 1);
     if (e.key === 'ArrowLeft') goTo(view.step - 1);
+  });
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(renderTab, 150);
   });
 
   loadWorkload('A');
   byId('preset-note').hidden = true;
+  setAlgorithm(view.algorithm);
   applyHash();
 }
 

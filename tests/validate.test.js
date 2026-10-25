@@ -1,7 +1,7 @@
 // Validation spec tests (PLAN.md §4, §9 validation cases).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateInput, toProcesses } from '../src/validate.js';
+import { validateInput, validateFields, toProcesses } from '../src/validate.js';
 import { MAX_PROCESSES, MAX_ARRIVAL, MAX_BURST, MAX_QUANTUM } from '../src/limits.js';
 
 const row = (id, arrival, burst) => ({ id, arrival, burst });
@@ -84,4 +84,15 @@ test('numeric (non-string) values from preset workloads are accepted', () => {
 
 test('toProcesses trims IDs and converts numbers', () => {
   assert.deepEqual(toProcesses([row(' p1 ', ' 07', '3 ')]), [{ id: 'p1', arrival: 7, burst: 3 }]);
+});
+
+test('validateFields ties each error to its row and field, with the same messages as validateInput', () => {
+  const rows = [row('P1', '0', '3'), row('p1', '1.5', '0'), row('', '2', '1')];
+  const fields = validateFields(rows, 'RR', '0');
+  assert.deepEqual(fields.map((e) => [e.row, e.field]), [
+    [2, 'id'], [2, 'arrival'], [2, 'burst'], [3, 'id'], [null, 'quantum'],
+  ]);
+  assert.deepEqual(fields.map((e) => e.message), validateInput(rows, 'RR', '0'));
+  assert.deepEqual(validateFields([], 'XYZ').map((e) => [e.row, e.field]), [[null, null], [null, null]]);
+  assert.deepEqual(validateFields(ok, 'RR', '2'), []);
 });

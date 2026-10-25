@@ -7,7 +7,12 @@ body {
   margin: 0; background: var(--bg); color: var(--ink);
   font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
-header, main, footer { max-width: 1100px; margin: 0 auto; padding: 0 16px; }
+header, main, footer { max-width: 1440px; margin: 0 auto; padding: 0 16px; }
+/* Two columns on wide screens: inputs stay in view (sticky) while results update beside them. */
+@media (min-width: 1000px) {
+  main.layout { display: grid; grid-template-columns: minmax(400px, 460px) minmax(0, 1fr); gap: 16px; align-items: start; }
+  .col-input { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow-y: auto; }
+}
 header h1 { margin: 20px 0 4px; font-size: 1.6rem; }
 .sub { color: var(--muted); margin: 0 0 16px; }
 footer { color: var(--muted); font-size: .85rem; }
@@ -32,13 +37,43 @@ th, td { padding: 4px 10px; border-bottom: 1px solid var(--line); text-align: ri
 th:first-child, td:first-child { text-align: left; }
 thead th { background: #f0f2f6; }
 tfoot th, tfoot td { font-weight: 700; border-top: 2px solid var(--ink); }
-#proc-table input { width: 7.5em; text-align: right; }
-#proc-table input.id { text-align: left; }
+#proc-table th, #proc-table td { padding: 4px 6px; }
+#proc-table input { width: 5em; text-align: right; }
+#proc-table input.id { width: 7em; text-align: left; }
+input.invalid { border-color: var(--bad); background: #fdecea; box-shadow: 0 0 0 1px var(--bad); }
+.add-row { margin: 8px 0 0; }
+.swatch { display: inline-block; width: .8em; height: .8em; margin-right: 6px; border-radius: 3px; vertical-align: -1px;
+  background: var(--c); border: 1px solid rgba(0, 0, 0, .45); }
 #proc-table td.empty { color: var(--muted); font-style: italic; }
 button.del { padding: 2px 8px; color: var(--bad); }
 
 .errors { border: 1px solid var(--bad); background: #fdecea; color: var(--bad); border-radius: 6px; padding: 8px 12px; }
 .errors ul { margin: 4px 0 0 18px; padding: 0; }
+button.link { border: 0; background: none; padding: 0; color: inherit; text-align: left; cursor: pointer;
+  text-decoration: underline dotted; text-underline-offset: 2px; }
+
+/* Algorithm segmented buttons + quantum */
+.seg { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-bottom: 10px; }
+.seg-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 6px 4px;
+  border: 0; border-right: 1px solid var(--line); border-radius: 0; line-height: 1.2; }
+.seg-btn:last-child { border-right: 0; }
+.seg-btn small { font-size: .72rem; color: var(--muted); }
+.seg-btn[aria-pressed="true"] { background: var(--accent); color: #fff; }
+.seg-btn[aria-pressed="true"] small { color: #e3ecff; }
+.stepper-input { display: inline-flex; }
+.stepper-input button { padding: 4px 10px; }
+.stepper-input button:first-child { border-radius: 6px 0 0 6px; }
+.stepper-input button:last-child { border-radius: 0 6px 6px 0; }
+.stepper-input input { width: 3.5em; text-align: center; border-radius: 0; margin: 0 -1px; }
+label.check { display: inline-flex; align-items: center; gap: 5px; }
+.kbd { font-size: .8rem; }
+
+/* Output tabs; stale (last valid) results are dimmed */
+.tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+.tab { border-radius: 999px; padding: 5px 16px; }
+.tab[aria-selected="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+#output.stale .tab-panel { opacity: .5; }
+td.row-error { text-align: left; color: var(--bad); white-space: normal; }
 
 /* Gantt chart */
 .gantt { position: relative; height: 78px; margin: 6px 14px 4px; } /* side margin keeps the first/last tick labels visible */
