@@ -28,3 +28,15 @@ What happened: Added `package.json` with only `"type": "module"` (no dependencie
 How it was found: Setup.
 Fix / resolution: As described.
 Commit: Phase 0 initial commit
+
+### [10:27] Phase 0, DECISION
+What happened: Git warned "LF will be replaced by CRLF" (Windows `core.autocrlf`). The target is a Mac and GitHub Pages, so the line endings should stay LF.
+How it was found: Warnings on the first `git add`.
+Fix / resolution: Added `.gitattributes` with `* text=auto eol=lf`.
+Commit: Phase 0 follow-up
+
+### [10:27] Phase 0, CHECKPOINT
+What happened: Skeleton done. `node --test` → 0 tests, exit 0.
+How it was found: Ran `node --test`.
+Fix / resolution: Waiting for Melik's approval to start Phase 1.
+Commit: Phase 0 follow-up
